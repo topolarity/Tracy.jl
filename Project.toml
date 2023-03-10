@@ -1,0 +1,4 @@
+name = "Tracy"
+uuid = "e689c965-62c8-4b79-b2c5-8359227902fd"
+authors = ["Cody Tapscott <topolarity@tapscott.me>"]
+version = "0.1.0"
