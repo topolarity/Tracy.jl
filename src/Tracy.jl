@@ -96,9 +96,9 @@ function __init__()
             end
         end
     end, Cvoid, (Ptr{Cvoid}, Ptr{DeclaredSrcLoc}, Ptr{UInt64}))
-    ccall(:___tracy_zone_toggle_register,
-          #(:___tracy_emit_zone_begin, libTracyClient),
-          Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), toggle_fn, C_NULL)
+    # ccall(:___tracy_zone_toggle_register,
+          # #(:___tracy_emit_zone_begin, libTracyClient),
+          # Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), toggle_fn, C_NULL)
 end
 
 end # module Tracy

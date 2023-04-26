@@ -6,13 +6,29 @@
 ##################
 
 """
-@tracepoint "name" expression
+# Tracing Julia code
 
+Code you'd like to trace should be wrapped with `@tracepoint`
 
- julia> x = rand(10,10);
+    @tracepoint "name" <expression>
 
- julia> @tracepoint "multiply" x * x;
+Typically the expression will be a `begin-end` block:
 
+    @tracepoint "data aggregation" begin
+        # lots of compute here...
+    end
+
+The name of the tracepoint must be a literal string, and it cannot
+be changed at runtime.
+
+If you don't have Tracy installed, you can install `TracyProfiler_jll`
+and start it with `run(TracyProfiler_jll.tracy(); wait=false)`.
+
+```jldoctest
+julia> x = rand(10,10);
+
+julia> @tracepoint "multiply" x * x;
+```
 """
 macro tracepoint(name::String, ex::Expr)
 
@@ -48,11 +64,11 @@ end
 Enable/disable a set of tracepoint(s) in the provided modules by invalidating any
 existing code containing the tracepoint(s).
 
-Caution: This configuration update invalidates the code generated for all functions
-         containing the selected zones. Be aware that this will trigger re-compilation
-         for these functions and may cause undesirable latency.
+!!! warning
+    This invalidates the code generated for all functions containing the selected zones.
 
-         To avoid the latency impact, use `enable_tracepoint` instead.
+    This will trigger re-compilation for these functions and may cause undesirable latency.
+    It is strongly recommended to use `enable_tracepoint` instead.
 """
 function configure_tracepoint(m::Module, enable::Bool; name="", func="", file="")
     m_id = getfield(m, ID)
@@ -70,9 +86,6 @@ end
 
 Enable/disable a set of tracepoint(s) in the provided modules, based on whether they
 match the filters provided for `name`/`func`/`file`.
-
-Unlike `configure_tracepoint`, this method is a runtime toggle and does not invalidate
-any code.
 """
 function enable_tracepoint(m::Module, enable::Bool; name="", func="", file="")
     m_id = getfield(m, ID)
@@ -135,5 +148,5 @@ function update_srcloc!(c_srcloc::Ref{DeclaredSrcLoc}, srcloc::JuliaSrcLoc, m::M
     func = !isnothing(srcloc.func) ? pointer(srcloc.func) : pointer(unknown_string)
     base_data = TracySrcLoc(name, func, pointer(srcloc.file), srcloc.line, srcloc.color)
     c_srcloc[] = DeclaredSrcLoc(base_data, pointer(string(nameof(m))), 1)
-    ccall(:___tracy_send_srcloc, Cvoid, (Ptr{DeclaredSrcLoc},), c_srcloc)
+    # ccall(:___tracy_send_srcloc, Cvoid, (Ptr{DeclaredSrcLoc},), c_srcloc)
 end
