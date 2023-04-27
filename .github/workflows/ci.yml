@@ -54,6 +54,8 @@ jobs:
         with:
           files: lcov.info
   docs:
+    permissions:
+      contents: write
     name: Documentation
     runs-on: ubuntu-latest
     steps:
