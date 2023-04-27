@@ -18,6 +18,7 @@ codegen, GC, and runtime-internal mutexes/locks.
 module Tracy
 
 using LibTracyClient_jll: libTracyClient
+using Libdl: dllist, dlopen
 
 include("./cffi.jl")
 include("./tracepoint.jl")
@@ -71,6 +72,14 @@ zones that we'd like eliminated.
 """
 tracepoint_enabled(::Val, ::Val) = true
 
+function find_libtracy()
+    base_tracy_libs = filter(contains("libTracyClient"), dllist())
+    if length(base_tracy_libs) == 1
+        return base_tracy_libs[1]
+    else
+        return libTracyClient
+    end
+end
 
 # Register telemetry callbacks with Tracy 
 #
