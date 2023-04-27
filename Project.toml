@@ -6,3 +6,6 @@ version = "0.1.0"
 [deps]
 LibTracyClient_jll = "ad6e5548-8b26-5c9f-8ef3-ef0ad883f3a5"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+
+[compat]
+julia = "1.6"
