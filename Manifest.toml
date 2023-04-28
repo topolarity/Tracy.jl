@@ -19,9 +19,9 @@ version = "1.4.1"
 
 [[deps.LibTracyClient_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "836f71ac26bd4906ea69e0f2a87ddc17547d752e"
+git-tree-sha1 = "37adf58d446423b7899e9d343d3f2d3522e98bb1"
 uuid = "ad6e5548-8b26-5c9f-8ef3-ef0ad883f3a5"
-version = "0.9.1+1"
+version = "0.9.1+2"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
