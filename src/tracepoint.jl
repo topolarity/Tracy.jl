@@ -52,11 +52,15 @@ function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line
                         TracyZoneContext, (Ptr{Cvoid}, Cint),
                         ptr, unsafe_load(Ptr{DeclaredSrcLoc}(ptr)).enabled)
         end
-        $(esc(ex))
-        if tracepoint_enabled(Val($m_id), Val($N))
-            ccall((:___tracy_emit_zone_end, find_libtracy()),
-                  Cvoid, (TracyZoneContext,), ctx)
+        $(Expr(:tryfinally,
+            :($(esc(ex))),
+            quote
+                if tracepoint_enabled(Val($m_id), Val($N))
+                    ccall((:___tracy_emit_zone_end, find_libtracy()),
+                        Cvoid, (TracyZoneContext,), ctx)
+            end
         end
+        ))
     end
 end
 
