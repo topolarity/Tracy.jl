@@ -31,18 +31,20 @@ julia> @tracepoint "multiply" x * x;
 ```
 """
 macro tracepoint(name::String, ex::Expr)
+    return _tracepoint(name, ex, __module__, string(__source__.file), __source__.line)
+end
 
-    filepath = string(__source__.file)
-    srcloc = JuliaSrcLoc(name, nothing, filepath, __source__.line, 0)
+function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
+    srcloc = JuliaSrcLoc(name, nothing, filepath, line, 0)
     c_srcloc = Ref{DeclaredSrcLoc}(DeclaredSrcLoc(TracySrcLoc(C_NULL, C_NULL, C_NULL, 0, 0), C_NULL, 1))
-    push!(meta(__module__), Pair(srcloc, c_srcloc))
+    push!(meta(mod), Pair(srcloc, c_srcloc))
 
-    N = length(meta(__module__))
-    m_id = getfield(__module__, ID)
+    N = length(meta(mod))
+    m_id = getfield(mod, ID)
     return quote
         if tracepoint_enabled(Val($m_id), Val($N))
             if $c_srcloc[].module_name == C_NULL
-                update_srcloc!($c_srcloc, $srcloc, $__module__)
+                update_srcloc!($c_srcloc, $srcloc, $mod)
             end
             local ptr = pointer_from_objref($c_srcloc)
             local ctx = ccall(
@@ -50,11 +52,16 @@ macro tracepoint(name::String, ex::Expr)
                         TracyZoneContext, (Ptr{Cvoid}, Cint),
                         ptr, unsafe_load(Ptr{DeclaredSrcLoc}(ptr)).enabled)
         end
-        $(esc(ex))
-        if tracepoint_enabled(Val($m_id), Val($N))
-            ccall((:___tracy_emit_zone_end, libtracy),
-                  Cvoid, (TracyZoneContext,), ctx)
+
+        $(Expr(:tryfinally,
+            :($(esc(ex))),
+            quote
+                if tracepoint_enabled(Val($m_id), Val($N))
+                    ccall((:___tracy_emit_zone_end, libtracy),
+                        Cvoid, (TracyZoneContext,), ctx)
+            end
         end
+        ))
     end
 end
 
