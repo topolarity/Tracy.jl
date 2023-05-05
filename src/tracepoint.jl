@@ -137,6 +137,10 @@ struct JuliaSrcLoc
     file::String
     line::UInt32
     color::UInt32
+    JuliaSrcLoc(name::Union{String, Nothing}, func::Union{String, Nothing}, file::String, line::Integer, color::Integer) =
+        new(name === nothing ? nothing : intern(name),
+            func === nothing ? nothing : intern(func),
+            intern(file), line, color)
 end
 
 

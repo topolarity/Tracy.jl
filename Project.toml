@@ -4,8 +4,10 @@ authors = ["Cody Tapscott <topolarity@tapscott.me>"]
 version = "0.1.0"
 
 [deps]
+InternedStrings = "7d512f48-7fb1-5a58-b986-67e6dc259f01"
 LibTracyClient_jll = "ad6e5548-8b26-5c9f-8ef3-ef0ad883f3a5"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 
 [compat]
+InternedStrings = "0.7"
 julia = "1.6"
