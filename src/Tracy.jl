@@ -7,7 +7,7 @@ The `Tracy` module provides the `@tracepoint` macro which can be used to create
 scoped regions for profiling with Tracy.
 
 `@tracepoint`s can be runtime enabled/disabled with `enable_tracepoint` or they
-can be erased from the generated code entirely using invalidation with 
+can be erased from the generated code entirely using invalidation with
 `configure_tracepoint`. The latter is effectively a "compile-time" enable/disable
 for tracing zones for ultra-low overhead.
 
@@ -17,11 +17,11 @@ codegen, GC, and runtime-internal mutexes/locks.
 """
 module Tracy
 
-using LibTracyClient_jll: libTracyClient
-using Libdl: dllist, dlopen
+include("LibTracyClient.jl")
+const DeclaredSrcLoc = LibTracyClient.__tracy_declared_source_location_data
 
-include("./cffi.jl")
 include("./tracepoint.jl")
+
 
 export @tracepoint
 
@@ -72,16 +72,7 @@ zones that we'd like eliminated.
 """
 tracepoint_enabled(::Val, ::Val) = true
 
-function find_libtracy()
-    base_tracy_libs = filter(contains("libTracyClient"), dllist())
-    if length(base_tracy_libs) == 1
-        return base_tracy_libs[1]
-    else
-        return libTracyClient
-    end
-end
-
-# Register telemetry callbacks with Tracy 
+# Register telemetry callbacks with Tracy
 #
 # This is what allows `@tracepoint`s to be toggled from within the Tracy GUI
 function __init__()

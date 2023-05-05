@@ -1,0 +1,7 @@
+[general]
+extract_c_comment_style = "raw"
+show_c_function_prototype = true
+use_julia_native_enum_type = true
+
+[codegen]
+use_ccall_macro = true

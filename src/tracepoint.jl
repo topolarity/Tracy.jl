@@ -34,7 +34,7 @@ macro tracepoint(name::String, ex::Expr)
 
     filepath = string(__source__.file)
     srcloc = JuliaSrcLoc(name, nothing, filepath, __source__.line, 0)
-    c_srcloc = Ref{DeclaredSrcLoc}(DeclaredSrcLoc(TracySrcLoc(C_NULL, C_NULL, C_NULL, 0, 0), C_NULL, 1))
+    c_srcloc = Ref{DeclaredSrcLoc}(DeclaredSrcLoc(LibTracyClient.___tracy_source_location_data(C_NULL, C_NULL, C_NULL, 0, 0), C_NULL, 1))
     push!(meta(__module__), Pair(srcloc, c_srcloc))
 
     N = length(meta(__module__))
@@ -45,15 +45,11 @@ macro tracepoint(name::String, ex::Expr)
                 update_srcloc!($c_srcloc, $srcloc, $__module__)
             end
             local ptr = pointer_from_objref($c_srcloc)
-            local ctx = ccall(
-                        (:___tracy_emit_zone_begin, find_libtracy()),
-                        TracyZoneContext, (Ptr{Cvoid}, Cint),
-                        ptr, unsafe_load(Ptr{DeclaredSrcLoc}(ptr)).enabled)
+            local ctx = LibTracyClient.___tracy_emit_zone_begin(ptr, unsafe_load(Ptr{DeclaredSrcLoc}(ptr)).enabled)
         end
         $(esc(ex))
         if tracepoint_enabled(Val($m_id), Val($N))
-            ccall((:___tracy_emit_zone_end, find_libtracy()),
-                  Cvoid, (TracyZoneContext,), ctx)
+            LibTracyClient.___tracy_emit_zone_end(ctx)
         end
     end
 end
@@ -122,14 +118,14 @@ end
 ###################
 
 """
-A 'Julia' version of the data contained in `DeclaredSrcLoc`
+A 'Julia' version of the data contained in `__tracy_declared_source_location_data`
 
 The redundant data structure is required for two reasons:
   1. Julia provides no facility for C pointers to be correctly
      serialized/de-serialized across pre-compile.
   2. Any pointers needs to have their memory backed by Julia
      objects, so the `JuliaSrcLoc` objects keep the referenced
-     objects used by `DeclaredSrcLoc` alive in the GC
+     objects used by `__tracy_declared_source_location_data` alive in the GC
 """
 struct JuliaSrcLoc
     name::Union{String, Nothing}
@@ -141,12 +137,13 @@ end
 
 
 """
-Update a C ABI-compatible `DeclaredSrcLoc` with contents taken from a `JuliaSrcLoc` object.
+Update a C ABI-compatible `__tracy_declared_source_location_data` with contents taken from a `JuliaSrcLoc` object.
 """
 function update_srcloc!(c_srcloc::Ref{DeclaredSrcLoc}, srcloc::JuliaSrcLoc, m::Module)
     name = !isnothing(srcloc.name) ? pointer(srcloc.name) : C_NULL
     func = !isnothing(srcloc.func) ? pointer(srcloc.func) : pointer(unknown_string)
-    base_data = TracySrcLoc(name, func, pointer(srcloc.file), srcloc.line, srcloc.color)
+    base_data = LibTracyClient.___tracy_source_location_data(name, func, pointer(srcloc.file), srcloc.line, srcloc.color)
+    # XXX What is keeping the pointer to the string alive?
     c_srcloc[] = DeclaredSrcLoc(base_data, pointer(string(nameof(m))), 1)
-    # ccall((:___tracy_send_srcloc, find_libtracy()), Cvoid, (Ptr{DeclaredSrcLoc},), c_srcloc)
+    # LibTracyClient.___tracy_send_srcloc(c_srcloc)
 end
