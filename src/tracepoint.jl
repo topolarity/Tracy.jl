@@ -48,15 +48,16 @@ function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line
             end
             local ptr = pointer_from_objref($c_srcloc)
             local ctx = ccall(
-                        (:___tracy_emit_zone_begin, find_libtracy()),
+                        (:___tracy_emit_zone_begin, libtracy),
                         TracyZoneContext, (Ptr{Cvoid}, Cint),
                         ptr, unsafe_load(Ptr{DeclaredSrcLoc}(ptr)).enabled)
         end
+
         $(Expr(:tryfinally,
             :($(esc(ex))),
             quote
                 if tracepoint_enabled(Val($m_id), Val($N))
-                    ccall((:___tracy_emit_zone_end, find_libtracy()),
+                    ccall((:___tracy_emit_zone_end, libtracy),
                         Cvoid, (TracyZoneContext,), ctx)
             end
         end
@@ -154,5 +155,5 @@ function update_srcloc!(c_srcloc::Ref{DeclaredSrcLoc}, srcloc::JuliaSrcLoc, m::M
     func = !isnothing(srcloc.func) ? pointer(srcloc.func) : pointer(unknown_string)
     base_data = TracySrcLoc(name, func, pointer(srcloc.file), srcloc.line, srcloc.color)
     c_srcloc[] = DeclaredSrcLoc(base_data, pointer(string(nameof(m))), 1)
-    # ccall((:___tracy_send_srcloc, find_libtracy()), Cvoid, (Ptr{DeclaredSrcLoc},), c_srcloc)
+    # ccall((:___tracy_send_srcloc, libtracy), Cvoid, (Ptr{DeclaredSrcLoc},), c_srcloc)
 end
