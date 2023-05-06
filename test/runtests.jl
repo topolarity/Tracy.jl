@@ -2,11 +2,11 @@ module BasicTests
     using Tracy
     using Test
 
-    @tracepoint "test tracepoint" begin
+    @zone "test zone" begin
 	    println("Hello, world!")
     end
 
-    @test_throws ErrorException @tracepoint "test exception" begin
+    @test_throws ErrorException @zone "test exception" begin
         error("oh no!")
     end
 end

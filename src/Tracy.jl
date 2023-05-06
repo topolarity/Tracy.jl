@@ -3,12 +3,12 @@
 """
     Tracy
 
-The `Tracy` module provides the `@tracepoint` macro which can be used to create
+The `Tracy` module provides the `@zone` macro which can be used to create
 scoped regions for profiling with Tracy.
 
-`@tracepoint`s can be runtime enabled/disabled with `enable_tracepoint` or they
+`@zone`s can be runtime enabled/disabled with `enable_zone` or they
 can be erased from the generated code entirely using invalidation with
-`configure_tracepoint`. The latter is effectively a "compile-time" enable/disable
+`configure_zone`. The latter is effectively a "compile-time" enable/disable
 for tracing zones for ultra-low overhead.
 
 If Julia was built with the compile-time flag `WITH_TRACY` enabled, the recorded
@@ -20,15 +20,15 @@ module Tracy
 using LibTracyClient_jll: libTracyClient
 using Libdl: dllist, dlopen
 
-include("./cffi.jl")
-include("./tracepoint.jl")
+include("cffi.jl")
+include("zone.jl")
 
-export @tracepoint
+export @zone
 
 # Remaining public API is:
-#   - `enable_tracepoint`
-#   - `configure_tracepoint`
-#   - `@register_tracepoints`
+#   - `enable_zone`
+#   - `configure_zone`
+#   - `@register_zones`
 
 ###################
 # Private methods #
@@ -49,7 +49,7 @@ function initmeta(m::Module)
     if !isdefined(m, META) || getfield(m, META) === nothing
         Core.eval(m, :($META = $(METAType())))
         Core.eval(m, :($ID() = nothing))
-        Core.eval(m, :($Tracy.tracepoint_enabled(::Val{$ID}, ::Val) = true))
+        Core.eval(m, :($Tracy.zone_enabled(::Val{$ID}, ::Val) = true))
     end
     nothing
 end
@@ -58,19 +58,19 @@ const modules = Module[]
 const unknown_string = "<unknown>"
 
 """
-    tracepoint_enabled
+    zone_enabled
 
 This function is used to implement a dispatch-based technique for "compile-time"
-enable/disable of individual tracepoints. The first parameter is a unique identifier
+enable/disable of individual zones. The first parameter is a unique identifier
 generated for each client Module, and the second is an index corresponding to the
-`@tracepoint` generated in the module.
+`@zone` generated in the module.
 
 These parameters are statically-known at all call-sites and the return value is
 either always true or always false, which makes it trivial for the compiler to elide
 the call to be totally elided and propagate its result, including any dead profiling
 zones that we'd like eliminated.
 """
-tracepoint_enabled(::Val, ::Val) = true
+zone_enabled(::Val, ::Val) = true
 
 const BASE_TRACY_LIB = let
     base_tracy_libs = filter(contains("libTracyClient"), dllist())
@@ -80,7 +80,7 @@ libtracy::String = ""
 
 # Register telemetry callbacks with Tracy
 #
-# This is what allows `@tracepoint`s to be toggled from within the Tracy GUI
+# This is what allows `@zone`s to be toggled from within the Tracy GUI
 function __init__()
     global libtracy = something(BASE_TRACY_LIB, libTracyClient)
     toggle_fn = @cfunction((data, srcloc, enable_ptr) -> begin
@@ -92,9 +92,9 @@ function __init__()
                     old_enable = c_srcloc[].enabled
                     if enable != old_enable
                         if old_enable == 0xFF
-                            Core.eval(m, :($Tracy.tracepoint_enabled(::Val{$m_id}, ::Val{$i}) = true))
+                            Core.eval(m, :($Tracy.zone_enabled(::Val{$m_id}, ::Val{$i}) = true))
                         elseif enable == 0xFF
-                            Core.eval(m, :($Tracy.tracepoint_enabled(::Val{$m_id}, ::Val{$i}) = false))
+                            Core.eval(m, :($Tracy.zone_enabled(::Val{$m_id}, ::Val{$i}) = false))
                         end
                         c_srcloc[] = DeclaredSrcLoc(c_srcloc[].srcloc, c_srcloc[].module_name, enable)
                     end

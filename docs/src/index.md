@@ -3,8 +3,8 @@
 A flexible profiling tool for tracing Julia code, LLVM compilation, Garbage Collection, and more.
 
 ```@docs
-@tracepoint
-Tracy.@register_tracepoints
-Tracy.enable_tracepoint
-Tracy.configure_tracepoint
+@zone
+Tracy.@register_zones
+Tracy.enable_zone
+Tracy.configure_zone
 ```

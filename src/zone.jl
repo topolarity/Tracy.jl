@@ -8,17 +8,17 @@
 """
 # Tracing Julia code
 
-Code you'd like to trace should be wrapped with `@tracepoint`
+Code you'd like to trace should be wrapped with `@zone`
 
-    @tracepoint "name" <expression>
+    @zone "name" <expression>
 
 Typically the expression will be a `begin-end` block:
 
-    @tracepoint "data aggregation" begin
+    @zone "data aggregation" begin
         # lots of compute here...
     end
 
-The name of the tracepoint must be a literal string, and it cannot
+The name of the zone must be a literal string, and it cannot
 be changed at runtime.
 
 If you don't have Tracy installed, you can install `TracyProfiler_jll`
@@ -27,14 +27,14 @@ and start it with `run(TracyProfiler_jll.tracy(); wait=false)`.
 ```jldoctest
 julia> x = rand(10,10);
 
-julia> @tracepoint "multiply" x * x;
+julia> @zone "multiply" x * x;
 ```
 """
-macro tracepoint(name::String, ex::Expr)
-    return _tracepoint(name, ex, __module__, string(__source__.file), __source__.line)
+macro zone(name::String, ex::Expr)
+    return _zone(name, ex, __module__, string(__source__.file), __source__.line)
 end
 
-function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
+function _zone(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
     srcloc = JuliaSrcLoc(name, nothing, filepath, line, 0)
     c_srcloc = Ref{DeclaredSrcLoc}(DeclaredSrcLoc(TracySrcLoc(C_NULL, C_NULL, C_NULL, 0, 0), C_NULL, 1))
     push!(meta(mod), Pair(srcloc, c_srcloc))
@@ -42,7 +42,7 @@ function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line
     N = length(meta(mod))
     m_id = getfield(mod, ID)
     return quote
-        if tracepoint_enabled(Val($m_id), Val($N))
+        if zone_enabled(Val($m_id), Val($N))
             if $c_srcloc[].module_name == C_NULL
                 update_srcloc!($c_srcloc, $srcloc, $mod)
             end
@@ -56,7 +56,7 @@ function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line
         $(Expr(:tryfinally,
             :($(esc(ex))),
             quote
-                if tracepoint_enabled(Val($m_id), Val($N))
+                if zone_enabled(Val($m_id), Val($N))
                     ccall((:___tracy_emit_zone_end, libtracy),
                         Cvoid, (TracyZoneContext,), ctx)
             end
@@ -66,35 +66,35 @@ function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line
 end
 
 """
-    configure_tracepoint
+    configure_zone
 
-Enable/disable a set of tracepoint(s) in the provided modules by invalidating any
-existing code containing the tracepoint(s).
+Enable/disable a set of zone(s) in the provided modules by invalidating any
+existing code containing the zone(s).
 
 !!! warning
     This invalidates the code generated for all functions containing the selected zones.
 
     This will trigger re-compilation for these functions and may cause undesirable latency.
-    It is strongly recommended to use `enable_tracepoint` instead.
+    It is strongly recommended to use `enable_zone` instead.
 """
-function configure_tracepoint(m::Module, enable::Bool; name="", func="", file="")
+function configure_zone(m::Module, enable::Bool; name="", func="", file="")
     m_id = getfield(m, ID)
     for (i, (srcloc, _)) in enumerate(meta(m))
         contains(srcloc.name, name) || continue
         contains(srcloc.func, func) || continue
         contains(srcloc.file, file) || continue
-        Core.eval(m, :($Tracy.tracepoint_enabled(::Val{$m_id}, ::Val{$i}) = $enable))
+        Core.eval(m, :($Tracy.zone_enabled(::Val{$m_id}, ::Val{$i}) = $enable))
     end
     return nothing
 end
 
 """
-    enable_tracepoint
+    enable_zone
 
-Enable/disable a set of tracepoint(s) in the provided modules, based on whether they
+Enable/disable a set of zone(s) in the provided modules, based on whether they
 match the filters provided for `name`/`func`/`file`.
 """
-function enable_tracepoint(m::Module, enable::Bool; name="", func="", file="")
+function enable_zone(m::Module, enable::Bool; name="", func="", file="")
     m_id = getfield(m, ID)
     for (i, (srcloc, c_srcloc)) in enumerate(meta(m))
         contains(srcloc.name, name) || continue
@@ -108,13 +108,13 @@ function enable_tracepoint(m::Module, enable::Bool; name="", func="", file="")
 end
 
 """
-Register this module's `@tracepoint` callsites with Tracy.jl
+Register this module's `@zone` callsites with Tracy.jl
 
-This will allow tracepoints to appear in Tracy's Enable/Disable window, even if they
+This will allow zones to appear in Tracy's Enable/Disable window, even if they
 haven't been run yet. Using this macro is optional, but it's recommended to call it
 from within your module's `__init__` method.
 """
-macro register_tracepoints()
+macro register_zones()
     srclocs = meta(__module__)
     return quote
         push!($modules, $__module__)
