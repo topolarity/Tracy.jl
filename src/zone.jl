@@ -36,18 +36,18 @@ end
 
 function _zone(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
     srcloc = JuliaSrcLoc(name, nothing, filepath, line, 0)
-    c_srcloc = Ref{DeclaredSrcLoc}(DeclaredSrcLoc(TracySrcLoc(C_NULL, C_NULL, C_NULL, 0, 0), C_NULL, 1))
-    push!(meta(mod), Pair(srcloc, c_srcloc))
+    c_srcloc_ref = Ref(DeclaredSrcLoc(TracySrcLoc(C_NULL, C_NULL, C_NULL, 0, 0), C_NULL, 1))
+    push!(meta(mod), Pair(srcloc, c_srcloc_ref))
 
     return quote
-        if $c_srcloc[].module_name == C_NULL
-            update_srcloc!($c_srcloc, $srcloc, $mod)
+        c_srcloc = $c_srcloc_ref[]
+        if c_srcloc.module_name == C_NULL
+            update_srcloc!($c_srcloc_ref, $srcloc, $mod)
         end
-        local ptr = pointer_from_objref($c_srcloc)
         local ctx = ccall(
                     (:___tracy_emit_zone_begin, libtracy),
                     TracyZoneContext, (Ptr{Cvoid}, Cint),
-                    ptr, unsafe_load(Ptr{DeclaredSrcLoc}(ptr)).enabled)
+                    $c_srcloc_ref, c_srcloc.enabled)
 
         $(Expr(:tryfinally,
             :($(esc(ex))),
