@@ -76,7 +76,7 @@ function enable_zone(m::Module, enable::Bool; name="", func="", file="")
         contains(srcloc.name, name) || continue
         contains(srcloc.func, func) || continue
         contains(srcloc.file, file) || continue
-        if ((c_srcloc[] == 0 && enable) || (c_srcloc[] == 1 && !enable))
+        if ((c_srcloc[].enabled == 0 && enable) || (c_srcloc[].enabled == 1 && !enable))
             c_srcloc[] = DeclaredSrcLoc(c_srcloc[].srcloc, c_srcloc[].module_name, enable)
         end
     end
