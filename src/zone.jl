@@ -35,9 +35,17 @@ macro zone(name::String, ex::Expr)
 end
 
 function _zone(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
+    m = meta(mod)
+    for (srcloc, _) in m
+        if name == srcloc.name
+            name = srcloc.name
+            break
+        end
+    end
     srcloc = JuliaSrcLoc(name, nothing, filepath, line, 0)
     c_srcloc_ref = Ref(DeclaredSrcLoc(TracySrcLoc(C_NULL, C_NULL, C_NULL, 0, 0), C_NULL, 1))
-    push!(meta(mod), Pair(srcloc, c_srcloc_ref))
+
+    push!(m, Pair(srcloc, c_srcloc_ref))
 
     return quote
         c_srcloc = $c_srcloc_ref[]
