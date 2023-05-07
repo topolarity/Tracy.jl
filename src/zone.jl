@@ -52,17 +52,14 @@ function _zone(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
         if c_srcloc.module_name == C_NULL
             update_srcloc!($c_srcloc_ref, $srcloc, $mod)
         end
-        local ctx = ccall(
-                    (:___tracy_emit_zone_begin, libtracy),
-                    TracyZoneContext, (Ptr{Cvoid}, Cint),
-                    $c_srcloc_ref, c_srcloc.enabled)
+        local ctx = @ccall libtracy.___tracy_emit_zone_begin($c_srcloc_ref::Ptr{Cvoid},
+                                                             c_srcloc.enabled::Cint)::TracyZoneContext
 
         $(Expr(:tryfinally,
             :($(esc(ex))),
             quote
-                ccall((:___tracy_emit_zone_end, libtracy),
-                    Cvoid, (TracyZoneContext,), ctx)
-        end
+                @ccall libtracy.___tracy_emit_zone_end(ctx::TracyZoneContext)::Cvoid
+            end
         ))
     end
 end
