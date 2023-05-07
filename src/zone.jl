@@ -36,25 +36,23 @@ end
 
 function _zone(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
     m = meta(mod)
-    for (srcloc, _) in m
-        if name == srcloc.name
-            name = srcloc.name
+
+    # Deduplicate name strings
+    for srcloc in m
+        if name == srcloc.zone_name
+            name = srcloc.zone_name
             break
         end
     end
-    srcloc = JuliaSrcLoc(name, nothing, filepath, line, 0)
-    c_srcloc_ref = Ref(DeclaredSrcLoc(TracySrcLoc(C_NULL, C_NULL, C_NULL, 0, 0), C_NULL, 1))
 
-    push!(m, Pair(srcloc, c_srcloc_ref))
-
+    srcloc = DeclaredSrcLoc(name, nothing, filepath, line, 0, mod, 1)
+    push!(m, srcloc) # Root it
     return quote
-        c_srcloc = $c_srcloc_ref[]
-        if c_srcloc.module_name == C_NULL
-            update_srcloc!($c_srcloc_ref, $srcloc, $mod)
+        if $srcloc.module_name == C_NULL
+             update_srcloc!($srcloc)
         end
-        local ctx = @ccall libtracy.___tracy_emit_zone_begin($c_srcloc_ref::Ptr{Cvoid},
-                                                             c_srcloc.enabled::Cint)::TracyZoneContext
-
+        local ctx = @ccall libtracy.___tracy_emit_zone_begin(Base.pointer_from_objref($srcloc)::Ptr{Cvoid},
+                                                             $srcloc.enabled::Cint)::TracyZoneContext
         $(Expr(:tryfinally,
             :($(esc(ex))),
             quote
@@ -72,13 +70,11 @@ Enable/disable a set of zone(s) in the provided modules, based on whether they
 match the filters provided for `name`/`func`/`file`.
 """
 function enable_zone(m::Module, enable::Bool; name="", func="", file="")
-    for (srcloc, c_srcloc) in meta(m)
+    for srcloc in meta(m)
         contains(srcloc.name, name) || continue
         contains(srcloc.func, func) || continue
         contains(srcloc.file, file) || continue
-        if ((c_srcloc[].enabled == 0 && enable) || (c_srcloc[].enabled == 1 && !enable))
-            c_srcloc[] = DeclaredSrcLoc(c_srcloc[].srcloc, c_srcloc[].module_name, enable)
-        end
+        srcloc.enabled = enable
     end
     return nothing
 end
@@ -95,41 +91,7 @@ macro register_zones()
     return quote
         push!($modules, $__module__)
         for i = 1:length($srclocs)
-            Tracy.update_srcloc!($srclocs[i].second, $srclocs[i].first, $__module__)
+            update_srcloc!(srclocs[i])
         end
     end
-end
-
-###################
-# Private methods #
-###################
-
-"""
-A 'Julia' version of the data contained in `DeclaredSrcLoc`
-
-The redundant data structure is required for two reasons:
-  1. Julia provides no facility for C pointers to be correctly
-     serialized/de-serialized across pre-compile.
-  2. Any pointers needs to have their memory backed by Julia
-     objects, so the `JuliaSrcLoc` objects keep the referenced
-     objects used by `DeclaredSrcLoc` alive in the GC
-"""
-struct JuliaSrcLoc
-    name::Union{String, Nothing}
-    func::Union{String, Nothing}
-    file::String
-    line::UInt32
-    color::UInt32
-end
-
-
-"""
-Update a C ABI-compatible `DeclaredSrcLoc` with contents taken from a `JuliaSrcLoc` object.
-"""
-function update_srcloc!(c_srcloc::Ref{DeclaredSrcLoc}, srcloc::JuliaSrcLoc, m::Module)
-    name = !isnothing(srcloc.name) ? pointer(srcloc.name) : C_NULL
-    func = !isnothing(srcloc.func) ? pointer(srcloc.func) : pointer(unknown_string)
-    base_data = TracySrcLoc(name, func, pointer(srcloc.file), srcloc.line, srcloc.color)
-    c_srcloc[] = DeclaredSrcLoc(base_data, pointer(string(nameof(m))), 1)
-    # ccall((:___tracy_send_srcloc, libtracy), Cvoid, (Ptr{DeclaredSrcLoc},), c_srcloc)
 end

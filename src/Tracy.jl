@@ -35,7 +35,7 @@ export @zone
 ###################
 
 const META = gensym(:meta)
-const METAType = Vector{Pair{JuliaSrcLoc, Ref{DeclaredSrcLoc}}}
+const METAType = Vector{DeclaredSrcLoc}
 
 function meta(m::Module; autoinit::Bool=true)
     m = Base.moduleroot(m)
@@ -70,12 +70,9 @@ function __init__()
     toggle_fn = @cfunction((data, srcloc, enable_ptr) -> begin
         enable = unsafe_load(enable_ptr)
         for m in modules
-            for (i, (_, c_srcloc)) in enumerate(meta(m))
-                if pointer_from_objref(c_srcloc) == srcloc
-                    old_enable = c_srcloc[].enabled
-                    if enable != old_enable
-                        c_srcloc[] = DeclaredSrcLoc(c_srcloc[].srcloc, c_srcloc[].module_name, enable)
-                    end
+            for srcloc in meta(m)
+                if pointer_from_objref(srcloc) == srcloc
+                    srcloc.enabled = enable
                     return nothing
                 end
             end
