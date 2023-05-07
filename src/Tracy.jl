@@ -38,6 +38,7 @@ const META = gensym(:meta)
 const METAType = Vector{Pair{JuliaSrcLoc, Ref{DeclaredSrcLoc}}}
 
 function meta(m::Module; autoinit::Bool=true)
+    m = Base.moduleroot(m)
     if !isdefined(m, META) || getfield(m, META) === nothing
         autoinit ? initmeta(m) : return nothing
     end
@@ -45,6 +46,7 @@ function meta(m::Module; autoinit::Bool=true)
 end
 
 function initmeta(m::Module)
+    m = Base.moduleroot(m)
     if !isdefined(m, META) || getfield(m, META) === nothing
         Core.eval(m, :($META = $(METAType())))
     end
