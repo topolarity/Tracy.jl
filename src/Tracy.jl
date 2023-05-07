@@ -34,7 +34,6 @@ export @zone
 # Private methods #
 ###################
 
-const ID = gensym(:id)
 const META = gensym(:meta)
 const METAType = Vector{Pair{JuliaSrcLoc, Ref{DeclaredSrcLoc}}}
 
@@ -48,29 +47,12 @@ end
 function initmeta(m::Module)
     if !isdefined(m, META) || getfield(m, META) === nothing
         Core.eval(m, :($META = $(METAType())))
-        Core.eval(m, :($ID() = nothing))
-        Core.eval(m, :($Tracy.zone_enabled(::Val{$ID}, ::Val) = true))
     end
     nothing
 end
 
 const modules = Module[]
 const unknown_string = "<unknown>"
-
-"""
-    zone_enabled
-
-This function is used to implement a dispatch-based technique for "compile-time"
-enable/disable of individual zones. The first parameter is a unique identifier
-generated for each client Module, and the second is an index corresponding to the
-`@zone` generated in the module.
-
-These parameters are statically-known at all call-sites and the return value is
-either always true or always false, which makes it trivial for the compiler to elide
-the call to be totally elided and propagate its result, including any dead profiling
-zones that we'd like eliminated.
-"""
-zone_enabled(::Val, ::Val) = true
 
 const BASE_TRACY_LIB = let
     base_tracy_libs = filter(contains("libTracyClient"), dllist())
@@ -88,14 +70,8 @@ function __init__()
         for m in modules
             for (i, (_, c_srcloc)) in enumerate(meta(m))
                 if pointer_from_objref(c_srcloc) == srcloc
-                    m_id = getfield(m, ID)
                     old_enable = c_srcloc[].enabled
                     if enable != old_enable
-                        if old_enable == 0xFF
-                            Core.eval(m, :($Tracy.zone_enabled(::Val{$m_id}, ::Val{$i}) = true))
-                        elseif enable == 0xFF
-                            Core.eval(m, :($Tracy.zone_enabled(::Val{$m_id}, ::Val{$i}) = false))
-                        end
                         c_srcloc[] = DeclaredSrcLoc(c_srcloc[].srcloc, c_srcloc[].module_name, enable)
                     end
                     return nothing
