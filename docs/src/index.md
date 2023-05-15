@@ -4,6 +4,7 @@ A flexible profiling tool for tracing Julia code, LLVM compilation, Garbage Coll
 
 ```@docs
 @tracepoint
+tracymsg
 Tracy.@register_tracepoints
 Tracy.enable_tracepoint
 Tracy.configure_tracepoint
