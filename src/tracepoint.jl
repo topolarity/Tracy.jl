@@ -36,31 +36,27 @@ end
 
 function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
     srcloc = JuliaSrcLoc(name, nothing, filepath, line, 0)
-    c_srcloc = Ref{DeclaredSrcLoc}(DeclaredSrcLoc(TracySrcLoc(C_NULL, C_NULL, C_NULL, 0, 0), C_NULL, 1))
-    push!(meta(mod), Pair(srcloc, c_srcloc))
+    c_srcloc_ref = Ref(DeclaredSrcLoc(TracySrcLoc(C_NULL, C_NULL, C_NULL, 0, 0), C_NULL, 1))
+    push!(meta(mod), Pair(srcloc, c_srcloc_ref))
 
     N = length(meta(mod))
     m_id = getfield(mod, ID)
     return quote
         if tracepoint_enabled(Val($m_id), Val($N))
-            if $c_srcloc[].module_name == C_NULL
-                update_srcloc!($c_srcloc, $srcloc, $mod)
+            if $c_srcloc_ref[].module_name == C_NULL
+                update_srcloc!($c_srcloc_ref, $srcloc, $mod)
             end
-            local ptr = pointer_from_objref($c_srcloc)
-            local ctx = ccall(
-                        (:___tracy_emit_zone_begin, libtracy),
-                        TracyZoneContext, (Ptr{Cvoid}, Cint),
-                        ptr, unsafe_load(Ptr{DeclaredSrcLoc}(ptr)).enabled)
+            local ctx = @ccall libtracy.___tracy_emit_zone_begin($c_srcloc_ref::Ptr{Cvoid},
+                                                                 $c_srcloc_ref[].enabled::Cint)::TracyZoneContext
         end
 
         $(Expr(:tryfinally,
             :($(esc(ex))),
             quote
                 if tracepoint_enabled(Val($m_id), Val($N))
-                    ccall((:___tracy_emit_zone_end, libtracy),
-                        Cvoid, (TracyZoneContext,), ctx)
+                    @ccall libtracy.___tracy_emit_zone_end(ctx::TracyZoneContext)::Cvoid
+                end
             end
-        end
         ))
     end
 end
@@ -155,5 +151,5 @@ function update_srcloc!(c_srcloc::Ref{DeclaredSrcLoc}, srcloc::JuliaSrcLoc, m::M
     func = !isnothing(srcloc.func) ? pointer(srcloc.func) : pointer(unknown_string)
     base_data = TracySrcLoc(name, func, pointer(srcloc.file), srcloc.line, srcloc.color)
     c_srcloc[] = DeclaredSrcLoc(base_data, pointer(string(nameof(m))), 1)
-    # ccall((:___tracy_send_srcloc, libtracy), Cvoid, (Ptr{DeclaredSrcLoc},), c_srcloc)
+    # @ccall libtracy.___tracy_send_srcloc(c_srcloc::Ptr{DeclaredSrcLoc})::Cvoid
 end
