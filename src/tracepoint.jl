@@ -36,21 +36,20 @@ end
 
 function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
     srcloc = JuliaSrcLoc(name, nothing, filepath, line, 0)
-    c_srcloc = Ref{DeclaredSrcLoc}(DeclaredSrcLoc(TracySrcLoc(C_NULL, C_NULL, C_NULL, 0, 0), C_NULL, 1))
-    push!(meta(mod), Pair(srcloc, c_srcloc))
+    c_srcloc_ref = Ref(DeclaredSrcLoc(TracySrcLoc(C_NULL, C_NULL, C_NULL, 0, 0), C_NULL, 1))
+    push!(meta(mod), Pair(srcloc, c_srcloc_ref))
 
     N = length(meta(mod))
     m_id = getfield(mod, ID)
     return quote
         if tracepoint_enabled(Val($m_id), Val($N))
-            if $c_srcloc[].module_name == C_NULL
-                update_srcloc!($c_srcloc, $srcloc, $mod)
+            if $c_srcloc_ref[].module_name == C_NULL
+                update_srcloc!($c_srcloc_ref, $srcloc, $mod)
             end
-            local ptr = pointer_from_objref($c_srcloc)
             local ctx = ccall(
                         (:___tracy_emit_zone_begin, libtracy),
                         TracyZoneContext, (Ptr{Cvoid}, Cint),
-                        ptr, unsafe_load(Ptr{DeclaredSrcLoc}(ptr)).enabled)
+                        $c_srcloc_ref, $c_srcloc_ref[].enabled)
         end
 
         $(Expr(:tryfinally,
