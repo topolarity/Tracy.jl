@@ -2,7 +2,7 @@ using Test
 
 const connect_tracy_capture = true
 const connect_tracy_gui = false # useful for manually inspecting the output
-const verify_csv_output = sizeof(Int) == 8 && !Sys.iswindows()
+const verify_csv_output = sizeof(Int) == 8 && !Sys.iswindows() && !connect_tracy_gui
 
 const run_zone_path = joinpath(@__DIR__, "run_zones.jl")
 if !connect_tracy_capture && !connect_tracy_gui
