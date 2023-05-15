@@ -35,21 +35,19 @@ macro tracepoint(name::String, ex::Expr)
 end
 
 function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
-    srcloc = JuliaSrcLoc(name, nothing, filepath, line, 0)
-    c_srcloc_ref = Ref(DeclaredSrcLoc(TracySrcLoc(C_NULL, C_NULL, C_NULL, 0, 0), C_NULL, 1))
-    push!(meta(mod), Pair(srcloc, c_srcloc_ref))
+    srcloc = TracySrcLoc(name, nothing, filepath, line, 0, mod, true)
+    push!(meta(mod), srcloc)
 
     N = length(meta(mod))
     m_id = getfield(mod, ID)
     return quote
         if tracepoint_enabled(Val($m_id), Val($N))
-            if $c_srcloc_ref[].module_name == C_NULL
-                update_srcloc!($c_srcloc_ref, $srcloc, $mod)
+            if $srcloc.file == C_NULL
+                initialize!($srcloc)
             end
-            local ctx = @ccall libtracy.___tracy_emit_zone_begin($c_srcloc_ref::Ptr{Cvoid},
-                                                                 $c_srcloc_ref[].enabled::Cint)::TracyZoneContext
+            local ctx = @ccall libtracy.___tracy_emit_zone_begin(pointer_from_objref($srcloc)::Ptr{Cvoid},
+                                                                 $srcloc.enabled::Cint)::TracyZoneContext
         end
-
         $(Expr(:tryfinally,
             :($(esc(ex))),
             quote
@@ -75,7 +73,7 @@ existing code containing the tracepoint(s).
 """
 function configure_tracepoint(m::Module, enable::Bool; name="", func="", file="")
     m_id = getfield(m, ID)
-    for (i, (srcloc, _)) in enumerate(meta(m))
+    for (i, srcloc) in enumerate(meta(m))
         contains(srcloc.name, name) || continue
         contains(srcloc.func, func) || continue
         contains(srcloc.file, file) || continue
@@ -91,13 +89,11 @@ Enable/disable a set of tracepoint(s) in the provided modules, based on whether 
 match the filters provided for `name`/`func`/`file`.
 """
 function enable_tracepoint(m::Module, enable::Bool; name="", func="", file="")
-    for (i, (srcloc, c_srcloc)) in enumerate(meta(m))
+    for srcloc in meta(m)
         contains(srcloc.name, name) || continue
         contains(srcloc.func, func) || continue
         contains(srcloc.file, file) || continue
-        if ((c_srcloc[].enabled == 0 && enable) || (c_srcloc[].enabled == 1 && !enable))
-            c_srcloc[] = DeclaredSrcLoc(c_srcloc[].srcloc, c_srcloc[].module_name, enable)
-        end
+        srcloc.enabled = enable
     end
     return nothing
 end
@@ -113,42 +109,6 @@ macro register_tracepoints()
     srclocs = meta(__module__)
     return quote
         push!($modules, $__module__)
-        for i = 1:length($srclocs)
-            Tracy.update_srcloc!($srclocs[i].second, $srclocs[i].first, $__module__)
-        end
+        foreach($Tracy.initialize!, $srclocs)
     end
-end
-
-###################
-# Private methods #
-###################
-
-"""
-A 'Julia' version of the data contained in `DeclaredSrcLoc`
-
-The redundant data structure is required for two reasons:
-  1. Julia provides no facility for C pointers to be correctly
-     serialized/de-serialized across pre-compile.
-  2. Any pointers needs to have their memory backed by Julia
-     objects, so the `JuliaSrcLoc` objects keep the referenced
-     objects used by `DeclaredSrcLoc` alive in the GC
-"""
-struct JuliaSrcLoc
-    name::Union{String, Nothing}
-    func::Union{String, Nothing}
-    file::String
-    line::UInt32
-    color::UInt32
-end
-
-
-"""
-Update a C ABI-compatible `DeclaredSrcLoc` with contents taken from a `JuliaSrcLoc` object.
-"""
-function update_srcloc!(c_srcloc::Ref{DeclaredSrcLoc}, srcloc::JuliaSrcLoc, m::Module)
-    name = !isnothing(srcloc.name) ? pointer(srcloc.name) : C_NULL
-    func = !isnothing(srcloc.func) ? pointer(srcloc.func) : pointer(unknown_string)
-    base_data = TracySrcLoc(name, func, pointer(srcloc.file), srcloc.line, srcloc.color)
-    c_srcloc[] = DeclaredSrcLoc(base_data, pointer(string(nameof(m))), 1)
-    # @ccall libtracy.___tracy_send_srcloc(c_srcloc::Ptr{DeclaredSrcLoc})::Cvoid
 end
