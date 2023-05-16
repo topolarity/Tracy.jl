@@ -1,0 +1,7 @@
+name = "TestPkg"
+uuid = "9d101d48-6957-4f1f-b48a-494f3e7aeffb"
+authors = ["KristofferC <kristoffer.carlsson@juliacomputing.com>"]
+version = "0.1.0"
+
+[deps]
+Tracy = "e689c965-62c8-4b79-b2c5-8359227902fd"

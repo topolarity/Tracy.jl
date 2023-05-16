@@ -36,7 +36,7 @@ export @tracepoint
 
 const ID = gensym(:id)
 const META = gensym(:meta)
-const METAType = Vector{Pair{JuliaSrcLoc, Ref{DeclaredSrcLoc}}}
+const METAType = Vector{TracySrcLoc}
 
 function meta(m::Module; autoinit::Bool=true)
     if !isdefined(m, META) || getfield(m, META) === nothing
@@ -54,8 +54,7 @@ function initmeta(m::Module)
     nothing
 end
 
-const modules = Module[]
-const unknown_string = "<unknown>"
+const modules = Set{Module}()
 
 """
     tracepoint_enabled
@@ -83,26 +82,26 @@ libtracy::String = ""
 # This is what allows `@tracepoint`s to be toggled from within the Tracy GUI
 function __init__()
     global libtracy = something(BASE_TRACY_LIB, libTracyClient)
-    toggle_fn = @cfunction((data, srcloc, enable_ptr) -> begin
+    toggle_fn = @cfunction((data, tracy_srcloc_ptr, enable_ptr) -> begin
         enable = unsafe_load(enable_ptr)
         for m in modules
-            for (i, (_, c_srcloc)) in enumerate(meta(m))
-                if pointer_from_objref(c_srcloc) == srcloc
+            for (i, srcloc) in enumerate(meta(m))
+                if pointer_from_objref(srcloc) == tracy_srcloc_ptr
                     m_id = getfield(m, ID)
-                    old_enable = c_srcloc[].enabled
+                    old_enable = srcloc.enabled
                     if enable != old_enable
                         if old_enable == 0xFF
                             Core.eval(m, :($Tracy.tracepoint_enabled(::Val{$m_id}, ::Val{$i}) = true))
                         elseif enable == 0xFF
                             Core.eval(m, :($Tracy.tracepoint_enabled(::Val{$m_id}, ::Val{$i}) = false))
                         end
-                        c_srcloc[] = DeclaredSrcLoc(c_srcloc[].srcloc, c_srcloc[].module_name, enable)
+                        srcloc.enabled = enable
                     end
                     return nothing
                 end
             end
         end
-    end, Cvoid, (Ptr{Cvoid}, Ptr{DeclaredSrcLoc}, Ptr{UInt64}))
+    end, Cvoid, (Ptr{Cvoid}, Ptr{TracySrcLoc}, Ptr{UInt64}))
     # ccall(:___tracy_zone_toggle_register,
           # #(:___tracy_emit_zone_begin, libTracyClient),
           # Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), toggle_fn, C_NULL)
