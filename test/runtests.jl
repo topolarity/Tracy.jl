@@ -56,6 +56,15 @@ else
                     @test Base.samefile(zone.src_file, joinpath(@__DIR__, "TestPkg", "src", "TestPkg.jl"))
                     @test zone.counts == "100"
                     @test zone.src_line == "7"
+                elseif zone.name == "zone f"
+                    @test Base.samefile(zone.src_file, joinpath(@__DIR__, "run_zones.jl"))
+                    @test zone.counts == "10"
+                elseif zone.name == "g"
+                    @test zone.counts == "20"
+                elseif zone.name == "hxT"
+                    @test zone.counts == "30"
+                elseif zone.name == "<anon>"
+                    @test zone.counts == "40"
                 end
             end
         end

@@ -1,5 +1,6 @@
 # This file is a part of Tracy.jl. License is MIT: See LICENSE.md
 
+_is_func_def(ex) = Meta.isexpr(ex, :function) || Base.is_short_function_def(ex) || Meta.isexpr(ex, :->)
 
 ##################
 # Public methods #
@@ -10,16 +11,33 @@
 
 Code you'd like to trace should be wrapped with `@tracepoint`
 
-    @tracepoint "name" <expression>
+```julia
+@tracepoint "name" <expression>
+```
 
 Typically the expression will be a `begin-end` block:
 
-    @tracepoint "data aggregation" begin
-        # lots of compute here...
-    end
+```julia
+@tracepoint "data aggregation" begin
+    # lots of compute here...
+end
+```
 
 The name of the tracepoint must be a literal string, and it cannot
 be changed at runtime.
+
+You can also trace function definitions where name of the tracepoint
+will be the name of the function unless it is explicitly provided:
+
+```julia
+@tracepoint function f(x)
+    x^2
+end
+
+@tracepoint "calling g" g(x) = x^2
+
+h = @tracepoint x -> x^2
+```
 
 If you don't have Tracy installed, you can install `TracyProfiler_jll`
 and start it with `run(TracyProfiler_jll.tracy(); wait=false)`.
@@ -31,7 +49,36 @@ julia> @tracepoint "multiply" x * x;
 ```
 """
 macro tracepoint(name::String, ex::Expr)
-    return _tracepoint(name, ex, __module__, string(__source__.file), __source__.line)
+    if _is_func_def(ex)
+        return _tracepoint_func(name, ex, __module__, string(__source__.file), __source__.line)
+    else
+        return _tracepoint(name, ex, __module__, string(__source__.file), __source__.line)
+    end
+end
+
+macro tracepoint(ex::Expr)
+    if _is_func_def(ex)
+        return _tracepoint_func(nothing, ex, __module__, string(__source__.file), __source__.line)
+    else
+        error("expected a function definition if no zone name is provided")
+    end
+end
+
+function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, filepath::String, line::Int)
+    def = splitdef(ex)
+    if haskey(def, :name)
+        # Grab zone name from function name
+        name === nothing && (name = def[:name])
+        def[:name] = esc(def[:name])
+    else
+        name = :var"<anon>"
+    end
+    def[:args] = map(esc, def[:args])
+    if haskey(def, :whereparams)
+        def[:whereparams] = map(esc, def[:whereparams])
+    end
+    def[:body] = _tracepoint(string(name), def[:body], mod, filepath, line)
+    return combinedef(def)
 end
 
 function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line::Int)

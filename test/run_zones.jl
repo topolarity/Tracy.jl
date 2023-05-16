@@ -54,4 +54,18 @@ TestPkg.test_data()
     tracymsg("system color magenta"; color=:magenta)
 end
 
+# Various ways to trace a function
+@tracepoint "zone f" f(x) = x^2
+foreach(n -> f(n), 1:10)
+@tracepoint function g(x)
+    x^2
+end
+foreach(n -> g(n), 1:20)
+@tracepoint "hxT" function h(x::T) where {T}
+    T(x^2)
+end
+foreach(n -> h(n), 1:30)
+i = @tracepoint x->x^2
+foreach(n -> i(n), 1:40)
+
 sleep(0.5)

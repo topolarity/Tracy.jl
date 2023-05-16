@@ -19,6 +19,7 @@ module Tracy
 
 using LibTracyClient_jll: libTracyClient
 using Libdl: dllist, dlopen
+using ExprTools: splitdef, combinedef
 
 include("cffi.jl")
 include("colors.jl")
