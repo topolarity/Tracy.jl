@@ -1,6 +1,6 @@
 name = "Tracy"
 uuid = "e689c965-62c8-4b79-b2c5-8359227902fd"
-authors = ["Cody Tapscott <cody.tapscott@juliacomputing.com>", "Kristoffer Carlsson <kristoffer.carlsson@juliacomputing.com>"]
+authors = ["Cody Tapscott <cody.tapscott@juliahub.com>", "Kristoffer Carlsson <kristoffer.carlsson@juliahub.com>"]
 version = "0.1.0"
 
 [deps]
