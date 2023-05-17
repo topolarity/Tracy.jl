@@ -10,8 +10,9 @@ if !verify_tracy_output && !connect_tracy_gui
 else
     # Spawn the headless tracy profiler, run the test script, and export the results to a CSV
     using TracyProfiler_jll
-    tmp = mktempdir()
+    tmp = mktempdir(; cleanup=false)#  mktempdir()
     tracyfile = joinpath(tmp, "tracyjltest.tracy")
+    @info "tracyfile: $tracyfile"
     if connect_tracy_gui
         p = run(`$(TracyProfiler_jll.tracy()) -a 127.0.0.1 -p 9001`; wait=false)
     else
@@ -26,7 +27,7 @@ else
 
     if !connect_tracy_gui
         csvfile = joinpath(tmp, "tracyjltest.csv")
-        run(pipeline(`$(TracyProfiler_jll.csvexport()) $(repr(tracyfile))`, stdout=csvfile))
+        run(pipeline(`$(TracyProfiler_jll.csvexport()) $tracyfile`, stdout=csvfile))
 
         # Parse the CSV file
         zones = []
@@ -44,8 +45,8 @@ else
             for zone in zones
                 if zone.name == "test tracepoint"
                     @test Base.samefile(zone.src_file, joinpath(@__DIR__, "run_zones.jl"))
-                    @test zone.counts == "1"
-                    @test zone.src_line == "16"
+                    @test zone.counts == "3"
+                    @test zone.src_line == "17"
                 elseif zone.name == "text exception"
                     @test zone.counts == "5"
                     @test zone.src_line == "22"

@@ -13,8 +13,10 @@ if haskey(ENV, "TRACYJL_WAIT_FOR_TRACY")
     @info "Connected!"
 end
 
-@tracepoint "test tracepoint" begin
-    println("Hello, world!")
+for i in 1:3
+    @tracepoint "test tracepoint" begin
+        println("Hello, world!")
+    end
 end
 
 for i in 1:5
