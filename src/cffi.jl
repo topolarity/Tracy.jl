@@ -16,7 +16,7 @@ mutable struct TracySrcLoc
     # branch of Tracy, but its usage is designed to be backwards-compatible with prior
     # Tracy versions:
     module_name::Ptr{UInt8} # nameof(__module__) (Julia-specific)
-    enabled::UInt64         # 0 = runtime-disabled, 1 = runtime-enabled, 0xff = compile-time-disabled
+    enabled::Cint         # 0 = runtime-disabled, 1 = runtime-enabled, 0xff = compile-time-disabled
 
     # These are used to reinitialize the pointers above since
     # pointers are only valid in a given Julia session.

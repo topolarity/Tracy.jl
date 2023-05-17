@@ -34,20 +34,20 @@ TestPkg.test_data()
 @testset "msg" begin
     tracymsg(SubString("Hello, world!"); color=0xFF00FF)
     tracymsg("System colors (0..15):")
-    for c in 0:15
-        tracymsg(string(lpad(c, 3, '0'), " "); color=c)
+    for color in 0:15
+        tracymsg(string(lpad(color, 3, '0'), " "); color)
     end
     tracymsg("")
 
     tracymsg("Color cube, 6×6×6 (16..231):")
-    for c in 16:231
-        tracymsg(string(lpad(c, 3, '0'), " "); color=c)
+    for color in 16:231
+        tracymsg(string(lpad(color, 3, '0'), " "); color)
     end
     tracymsg("")
 
     tracymsg("Grayscale ramp (232..255):")
-    for c in 232:255
-        tracymsg(string(lpad(c, 3, '0'), " "); color=c)
+    for color in 232:255
+        tracymsg(string(lpad(color, 3, '0'), " "); color)
     end
     tracymsg("")
 
@@ -55,7 +55,7 @@ TestPkg.test_data()
     for r = steps
         for g=steps
             for b=steps
-                tracymsg("rgb color ($r, $g, $b)"; color=(r,g,b))
+                tracymsg("rgb color ($r, $g, $b)"; color=(r,g,b), callstack=rand(Bool))
             end
             tracymsg("")
         end
