@@ -31,5 +31,27 @@ using TestPkg
 TestPkg.time_something()
 TestPkg.test_data()
 
+@testset "msg" begin
+    tracymsg(SubString("Hello, world!"); color=0xFF00FF)
+    tracymsg(SubString("Hello, sailor!"); color=:red)
+
+    steps = 0:30:255
+    for r = steps
+        for g=steps
+            for b=steps
+                tracymsg("rgb color ($r, $g, $b)"; color=(r,g,b), callstack_depth=rand(1:5))
+            end
+            tracymsg("")
+        end
+        tracymsg("")
+    end
+
+    tracymsg("")
+    tracymsg("system color red"; color=:red)
+    tracymsg("system color green"; color=:green)
+    tracymsg("system color blue"; color=:blue)
+    tracymsg("system color yellow"; color=:yellow)
+    tracymsg("system color magenta"; color=:magenta)
+end
 
 sleep(0.5)
