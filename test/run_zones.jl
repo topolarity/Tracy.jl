@@ -54,4 +54,13 @@ TestPkg.test_data()
     tracymsg("system color magenta"; color=:magenta)
 end
 
+tracyplot_config("sin"; fill=false, color=0xFF00FF)
+tracyplot_config("cos"; format=:percentage, step=true, fill=true, color=0x0000FF)
+
+for x in range(0, 2pi, 100)
+    tracyplot("sin", sin(x))
+    tracyplot("cos", 100*cos(x))
+    sleep(0.005)
+end
+
 sleep(0.5)

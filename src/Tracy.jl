@@ -24,9 +24,10 @@ include("cffi.jl")
 include("colors.jl")
 include("tracepoint.jl")
 include("msg.jl")
+include("plot.jl")
 
 
-export @tracepoint, tracymsg
+export @tracepoint, tracyplot, tracyplot_config, tracymsg
 
 # Remaining public API is:
 #   - `enable_tracepoint`
