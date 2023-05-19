@@ -20,6 +20,14 @@ module Tracy
 using LibTracyClient_jll: libTracyClient
 using Libdl: dllist, dlopen
 
+const color_docstr = """
+- An integer: The hex code of the color as `0xRRGGBB`.
+- A symbol: Can take the value `:black`, `:blue`, `:green`, `:cyan`, `:red`, `:magenta`, `:yellow`, `:white`,
+  `:light_black`, `:light_blue`, `:light_green`, `:light_cyan`, `:light_red`, `:light_magenta`, `:light_yellow`, `:light_white`.
+- A tuple of three integers: The RGB value `(R, G, B)` where each value is in the range 0..255.
+"""
+
+include("utils.jl")
 include("cffi.jl")
 include("colors.jl")
 include("tracepoint.jl")
