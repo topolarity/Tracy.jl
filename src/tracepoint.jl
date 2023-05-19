@@ -50,44 +50,75 @@ julia> @tracepoint "multiply" x * x;
 """
 macro tracepoint(name::String, ex::Expr)
     if _is_func_def(ex)
-        return _tracepoint_func(name, ex, __module__, string(__source__.file), __source__.line)
+        return _tracepoint_func(name, ex, __module__, __source__)
     else
-        return _tracepoint(name, ex, __module__, string(__source__.file), __source__.line)
+        return _tracepoint(name, nothing, ex, __module__, __source__)
     end
 end
 
 macro tracepoint(ex::Expr)
     if _is_func_def(ex)
-        return _tracepoint_func(nothing, ex, __module__, string(__source__.file), __source__.line)
+        return _tracepoint_func(nothing, ex, __module__, __source__)
     else
-        error("expected a function definition if no zone name is provided")
+        error("expected a zone name for @tracepoint")
     end
 end
 
-function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, filepath::String, line::Int)
+function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, source::LineNumberNode)
     def = splitdef(ex)
     if haskey(def, :name)
-        # Grab zone name from function name
-        name === nothing && (name = def[:name])
+        function_name = def[:name]
         def[:name] = esc(def[:name])
     else
-        name = :var"<anon>"
+        function_name = :var"<anon>"
     end
     def[:args] = map(esc, def[:args])
     if haskey(def, :whereparams)
         def[:whereparams] = map(esc, def[:whereparams])
     end
-    def[:body] = _tracepoint(string(name), def[:body], mod, filepath, line)
+    def[:body] = _tracepoint(nothing, string(function_name), def[:body], mod, source)
     return combinedef(def)
 end
 
-function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
-    srcloc = TracySrcLoc(name, nothing, filepath, line, 0, mod, true)
+# Copied from Base (added in v1.10)
+"""
+Replace any embedded line numbers in `ex` with the information from
+the provided LineNumberNode.
+
+Can be used to make a macro-generated expression appear to have source
+info "as if" it had been generated at the caller site.
+"""
+function replace_linenums!(ex::Expr, ln::LineNumberNode)
+    if ex.head === :block || ex.head === :quote
+        # replace line number expressions from metadata (not argument literal or inert) position
+        map!(ex.args, ex.args) do @nospecialize(x)
+            isa(x, Expr) && x.head === :line && length(x.args) == 1 && return Expr(:line, ln.line)
+            isa(x, Expr) && x.head === :line && length(x.args) == 2 && return Expr(:line, ln.line, ln.file)
+            isa(x, LineNumberNode) && return ln
+            return x
+        end
+    end
+    # preserve any linenums inside `esc(...)` guards
+    if ex.head !== :escape
+        for subex in ex.args
+            subex isa Expr && replace_linenums!(subex, ln)
+        end
+    end
+    return ex
+end
+
+replace_linenums!(ex, ln::LineNumberNode) = ex
+
+function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing}, ex::Expr, mod::Module, source::LineNumberNode)
+    filepath = string(source.file)
+    line = source.line
+
+    srcloc = TracySrcLoc(name, func, filepath, line, 0, mod, true)
     push!(meta(mod), srcloc)
 
     N = length(meta(mod))
     m_id = getfield(mod, ID)
-    return quote
+    return replace_linenums!(quote
         if tracepoint_enabled(Val($m_id), Val($N))
             if $srcloc.file == C_NULL
                 initialize!($srcloc)
@@ -103,7 +134,7 @@ function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line
                 end
             end
         ))
-    end
+    end, source)
 end
 
 """
