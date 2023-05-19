@@ -92,4 +92,20 @@ for x in range(0, 2pi, 100)
     sleep(0.005)
 end
 
+for j in 1:5
+    @tracepoint "SLP" color=0x00FF00 begin
+        sleep(0.01)
+    end
+end
+for j in 1:10
+    @tracepoint "SROA" color=(10, 20, 30) begin
+        sleep(0.01)
+    end
+end
+for j in 1:15
+    @tracepoint "Inlining" color=:red begin
+        sleep(0.01)
+    end
+end
+
 sleep(0.5)
