@@ -30,16 +30,45 @@ julia> x = rand(10,10);
 julia> @tracepoint "multiply" x * x;
 ```
 """
-macro tracepoint(name::String, ex::Expr)
-    return _tracepoint(name, ex, __module__, string(__source__.file), __source__.line)
+macro tracepoint(name::String, ex...)
+    kws, body = extract_keywords(ex)
+    return _tracepoint(name, body, __module__, string(__source__.file), __source__.line; kws...)
 end
 
-function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
+function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line::Int; text=nothing, name2=nothing, color=nothing)
     srcloc = TracySrcLoc(name, nothing, filepath, line, 0, mod, true)
     push!(meta(mod), srcloc)
 
     N = length(meta(mod))
     m_id = getfield(mod, ID)
+
+    text_expr = text === nothing ? :() :
+        quote
+            local text = string($text)
+            @ccall libtracy.___tracy_emit_zone_text(ctx::TracyZoneContext,
+                                                    text::Cstring, length($text)::Csize_t)::Cvoid
+        end
+
+    name_expr = name2 === nothing ? :() :
+        quote
+            local name = $name2
+            if name isa Integer
+                @ccall libtracy.___tracy_emit_zone_value(ctx::TracyZoneContext,
+                                                        name::UInt64)::Cvoid
+            else
+                name_str = string(name)
+                @ccall libtracy.___tracy_emit_zone_name(ctx::TracyZoneContext,
+                                                        name_str::Cstring, length(name_str)::Csize_t)::Cvoid
+            end
+        end
+
+    color_expr = color === nothing ? :() :
+    quote
+        local tcolor = _tracycolor($color)
+        @ccall libtracy.___tracy_emit_zone_color(ctx::TracyZoneContext,
+                                                tcolor::Cuint)::Cvoid
+    end
+
     return quote
         if tracepoint_enabled(Val($m_id), Val($N))
             if $srcloc.file == C_NULL
@@ -47,6 +76,9 @@ function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line
             end
             local ctx = @ccall libtracy.___tracy_emit_zone_begin(pointer_from_objref($srcloc)::Ptr{Cvoid},
                                                                  $srcloc.enabled::Cint)::TracyZoneContext
+            $text_expr
+            $name_expr
+            $color_expr
         end
         $(Expr(:tryfinally,
             :($(esc(ex))),

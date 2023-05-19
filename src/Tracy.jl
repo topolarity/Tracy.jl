@@ -20,6 +20,7 @@ module Tracy
 using LibTracyClient_jll: libTracyClient
 using Libdl: dllist, dlopen
 
+include("utils.jl")
 include("cffi.jl")
 include("colors.jl")
 include("tracepoint.jl")

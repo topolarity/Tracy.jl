@@ -54,4 +54,13 @@ TestPkg.test_data()
     tracymsg("system color magenta"; color=:magenta)
 end
 
+colors = [0x00FF00, (30, 60, 90), :yellow]
+names = ["SLP", "SROA", "inlining"]
+text = ["ok", 0, "bad"]
+for i in 1:3
+    @tracepoint "optimizations" color=colors[i] name2=names[i] text=text[i] begin
+        sleep(0.1)
+    end
+end
+
 sleep(0.5)
