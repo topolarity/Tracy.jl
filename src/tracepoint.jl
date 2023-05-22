@@ -1,5 +1,6 @@
 # This file is a part of Tracy.jl. License is MIT: See LICENSE.md
 
+_is_func_def(ex) = Meta.isexpr(ex, :function) || Base.is_short_function_def(ex) || Meta.isexpr(ex, :->)
 
 ##################
 # Public methods #
@@ -10,16 +11,33 @@
 
 Code you'd like to trace should be wrapped with `@tracepoint`
 
-    @tracepoint "name" <expression>
+```julia
+@tracepoint "name" <expression>
+```
 
 Typically the expression will be a `begin-end` block:
 
-    @tracepoint "data aggregation" begin
-        # lots of compute here...
-    end
+```julia
+@tracepoint "data aggregation" begin
+    # lots of compute here...
+end
+```
 
 The name of the tracepoint must be a literal string, and it cannot
 be changed at runtime.
+
+You can also trace function definitions where name of the tracepoint
+will be the name of the function unless it is explicitly provided:
+
+```julia
+@tracepoint function f(x)
+    x^2
+end
+
+@tracepoint "calling g" g(x) = x^2
+
+h = @tracepoint x -> x^2
+```
 
 If you don't have Tracy installed, you can install `TracyProfiler_jll`
 and start it with `run(TracyProfiler_jll.tracy(); wait=false)`.
@@ -31,11 +49,46 @@ julia> @tracepoint "multiply" x * x;
 ```
 """
 macro tracepoint(name::String, ex::Expr)
-    return _tracepoint(name, ex, __module__, string(__source__.file), __source__.line)
+    if _is_func_def(ex)
+        return _tracepoint_func(name, ex, __module__, __source__)
+    else
+        return _tracepoint(name, nothing, ex, __module__, __source__)
+    end
 end
 
-function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
-    srcloc = TracySrcLoc(name, nothing, filepath, line, 0, mod, true)
+macro tracepoint(ex::Expr)
+    if _is_func_def(ex)
+        return _tracepoint_func(nothing, ex, __module__, __source__)
+    else
+        error("expected a zone name for @tracepoint")
+    end
+end
+
+function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, source::LineNumberNode)
+    def = splitdef(ex)
+    if haskey(def, :name)
+        function_name = def[:name]
+        def[:name] = esc(def[:name])
+    else
+        function_name = :var"<anon>"
+    end
+    def[:args] = map(esc, def[:args])
+    if haskey(def, :whereparams)
+        def[:whereparams] = map(esc, def[:whereparams])
+    end
+    def[:body] = _tracepoint(name, string(function_name), def[:body], mod, source)
+    cdef = combinedef(def)
+    # Replace function definition line number node with that from source
+    @assert def[:body].args[1] isa LineNumberNode
+    def[:body].args[1] = source
+    return cdef
+end
+
+function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing}, ex::Expr, mod::Module, source::LineNumberNode)
+    filepath = string(source.file)
+    line = source.line
+
+    srcloc = TracySrcLoc(name, func, filepath, line, 0, mod, true)
     push!(meta(mod), srcloc)
 
     N = length(meta(mod))
