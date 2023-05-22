@@ -69,6 +69,8 @@ else
                     @test zone.counts == "30"
                 elseif zone.name == "<anon>"
                     @test zone.counts == "40"
+                else
+                    error("unknown zone name")
                 end
             end
         end
