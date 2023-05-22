@@ -6,40 +6,63 @@
 ##################
 
 """
-# Tracing Julia code
+    @tracepoint <name> enabled=<expr> color=<expr> <expression>
 
 Code you'd like to trace should be wrapped with `@tracepoint`
 
-    @tracepoint "name" <expression>
+```julia
+@tracepoint "name" <expression>
+```
 
 Typically the expression will be a `begin-end` block:
 
-    @tracepoint "data aggregation" begin
-        # lots of compute here...
-    end
+```julia
+@tracepoint "data aggregation" begin
+    # lots of compute here...
+end
+```
 
-The name of the tracepoint must be a literal string, and it cannot
-be changed at runtime.
-
-If you don't have Tracy installed, you can install `TracyProfiler_jll`
-and start it with `run(TracyProfiler_jll.tracy(); wait=false)`.
+The (default) color of the zone can be configured
+with the `color` keyword argument to the macro and it should evaluate (at macro expansion time) to:
+$color_docstr
 
 ```jldoctest
 julia> x = rand(10,10);
 
 julia> @tracepoint "multiply" x * x;
+
+julia> col = 0x00FF00; name = "sqrt";
+
+julia> @tracepoint name color=col sqrt(x) # green
 ```
+
+If you don't have Tracy installed, you can install `TracyProfiler_jll`
+and start it with `run(TracyProfiler_jll.tracy(); wait=false)`.
 """
-macro tracepoint(name::String, ex::Expr)
-    return _tracepoint(name, ex, __module__, string(__source__.file), __source__.line)
+macro tracepoint(name, ex...)
+    kws, body = extract_keywords(ex)
+    kws_evaluated = Dict{Symbol, Any}()
+    name_eval = try_static_eval(__module__, name)
+    if name_eval === nothing
+        error("name for tracepoint could not be statically evaluated")
+    end
+    for (k, v) in kws
+        v_eval = try_static_eval(__module__, v)
+        if v_eval === nothing
+            error("value for keyword argument $k could not be statically evaluated")
+        end
+        kws_evaluated[k] = v_eval
+    end
+    return _tracepoint(string(name_eval), body, __module__, string(__source__.file), __source__.line; kws_evaluated...)
 end
 
-function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line::Int)
-    srcloc = TracySrcLoc(name, nothing, filepath, line, 0, mod, true)
+function _tracepoint(name::String, ex::Expr, mod::Module, filepath::String, line::Int; color::Union{Integer,Symbol,NTuple{3,Integer},Nothing}=0)
+    srcloc = TracySrcLoc(name, nothing, filepath, line, _tracycolor(color), mod, true)
     push!(meta(mod), srcloc)
 
     N = length(meta(mod))
     m_id = getfield(mod, ID)
+
     return quote
         if tracepoint_enabled(Val($m_id), Val($N))
             if $srcloc.file == C_NULL
