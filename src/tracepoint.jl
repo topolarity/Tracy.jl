@@ -77,37 +77,12 @@ function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, s
         def[:whereparams] = map(esc, def[:whereparams])
     end
     def[:body] = _tracepoint(nothing, string(function_name), def[:body], mod, source)
-    return combinedef(def)
+    cdef = combinedef(def)
+    # Replace function definition line number node with that from source
+    @assert def[:body].args[1] isa LineNumberNode
+    def[:body].args[1] = source
+    return cdef
 end
-
-# Copied from Base (added in v1.10)
-"""
-Replace any embedded line numbers in `ex` with the information from
-the provided LineNumberNode.
-
-Can be used to make a macro-generated expression appear to have source
-info "as if" it had been generated at the caller site.
-"""
-function replace_linenums!(ex::Expr, ln::LineNumberNode)
-    if ex.head === :block || ex.head === :quote
-        # replace line number expressions from metadata (not argument literal or inert) position
-        map!(ex.args, ex.args) do @nospecialize(x)
-            isa(x, Expr) && x.head === :line && length(x.args) == 1 && return Expr(:line, ln.line)
-            isa(x, Expr) && x.head === :line && length(x.args) == 2 && return Expr(:line, ln.line, ln.file)
-            isa(x, LineNumberNode) && return ln
-            return x
-        end
-    end
-    # preserve any linenums inside `esc(...)` guards
-    if ex.head !== :escape
-        for subex in ex.args
-            subex isa Expr && replace_linenums!(subex, ln)
-        end
-    end
-    return ex
-end
-
-replace_linenums!(ex, ln::LineNumberNode) = ex
 
 function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing}, ex::Expr, mod::Module, source::LineNumberNode)
     filepath = string(source.file)
@@ -118,7 +93,7 @@ function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing},
 
     N = length(meta(mod))
     m_id = getfield(mod, ID)
-    return replace_linenums!(quote
+    return quote
         if tracepoint_enabled(Val($m_id), Val($N))
             if $srcloc.file == C_NULL
                 initialize!($srcloc)
@@ -134,7 +109,7 @@ function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing},
                 end
             end
         ))
-    end, source)
+    end
 end
 
 """
