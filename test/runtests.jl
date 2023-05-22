@@ -43,19 +43,34 @@ else
             end
         end
 
+        all_names_recorded = Set([z.name for z in zones])
+        all_names_expected = Set(["test tracepoint", "test exception", "timing", "zone f", "g", "hxT", "<anon>"])
+        @test all_names_recorded == all_names_expected
+
         @testset "check zone data" begin
             for zone in zones
                 if zone.name == "test tracepoint"
                     @test Base.samefile(zone.src_file, joinpath(@__DIR__, "run_zones.jl"))
                     @test zone.counts == "3"
                     @test zone.src_line == "17"
-                elseif zone.name == "text exception"
+                elseif zone.name == "test exception"
                     @test zone.counts == "5"
-                    @test zone.src_line == "22"
+                    @test zone.src_line == "23"
                 elseif zone.name == "timing"
                     @test Base.samefile(zone.src_file, joinpath(@__DIR__, "TestPkg", "src", "TestPkg.jl"))
                     @test zone.counts == "100"
                     @test zone.src_line == "7"
+                elseif zone.name == "zone f"
+                    @test Base.samefile(zone.src_file, joinpath(@__DIR__, "run_zones.jl"))
+                    @test zone.counts == "10"
+                elseif zone.name == "g"
+                    @test zone.counts == "20"
+                elseif zone.name == "hxT"
+                    @test zone.counts == "30"
+                elseif zone.name == "<anon>"
+                    @test zone.counts == "40"
+                else
+                    error("unknown zone name")
                 end
             end
         end
