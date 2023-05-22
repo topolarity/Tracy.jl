@@ -1,4 +1,8 @@
 using Test
+using Tracy
+
+using Aqua
+Aqua.test_all(Tracy)
 
 const connect_tracy_capture = true
 const connect_tracy_gui = false # useful for manually inspecting the output
