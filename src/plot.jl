@@ -4,7 +4,7 @@
 Configures a plot with the given name. Should typically be called once per plot.
 
 - The `format` parameter can be one of `:number`, `:memory`, or `:percentage`.
-- The `step`` parameter determines whether the plot will be displayed as a staircase or will smoothly change between plot points
+- The `step` parameter determines whether the plot will be displayed as a staircase or will smoothly change between plot points
 - The `fill` parameter can be used to disable filling the area below the plot with a solid color.
 
 If `color` is `nothing`, the default color is used.
