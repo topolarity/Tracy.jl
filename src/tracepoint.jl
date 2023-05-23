@@ -2,12 +2,37 @@
 
 _is_func_def(ex) = Meta.isexpr(ex, :function) || Base.is_short_function_def(ex) || Meta.isexpr(ex, :->)
 
+function _extract_color(ex)
+    kws, body = extract_keywords(ex)
+    for (k, v) in kws
+        k === :color || continue
+        color = v
+        if color !== 0
+            if color isa Integer
+                color = _tracycolor(color)
+            elseif color isa QuoteNode
+                color = _tracycolor(color.value)
+            elseif Meta.isexpr(color, :tuple)
+                if length(color.args) == 3 && all(isa.(color.args, Integer))
+                    color = _tracycolor(Tuple(color.args))
+                else
+                    error("Invalid color tuple: $color")
+                end
+            else
+                error("Invalid color: $color")
+            end
+        end
+        kws[k] = color
+    end
+    return body, kws
+end
+
 ##################
 # Public methods #
 ##################
 
 """
-# Tracing Julia code
+    @tracepoint "name" color=<color> <expression>
 
 Code you'd like to trace should be wrapped with `@tracepoint`
 
@@ -25,6 +50,10 @@ end
 
 The name of the tracepoint must be a literal string, and it cannot
 be changed at runtime.
+
+The (default) color of the zone can be configured
+with the `color` keyword argument to the macro which should be a literal that can either be:
+$color_docstr
 
 You can also trace function definitions where name of the tracepoint
 will be the name of the function unless it is explicitly provided:
@@ -46,25 +75,36 @@ and start it with `run(TracyProfiler_jll.tracy(); wait=false)`.
 julia> x = rand(10,10);
 
 julia> @tracepoint "multiply" x * x;
+
+julia> @tracepoint "pow2" color=:green x^2 # green
+
+julia> @tracepoint "pow3" color=:0xFF0000 x^3 # red
+
+julia> @tracepoint "pow4" color=(255, 165, 0) x^4 # orange
 ```
+
+If you don't have Tracy installed, you can install `TracyProfiler_jll`
+and start it with `run(TracyProfiler_jll.tracy(); wait=false)`.
 """
-macro tracepoint(name::String, ex::Expr)
-    if _is_func_def(ex)
-        return _tracepoint_func(name, ex, __module__, __source__)
+macro tracepoint(name::String, ex...)
+    body, kws = _extract_color(ex)
+    if _is_func_def(body)
+        return _tracepoint_func(name, body, __module__, __source__; kws...)
     else
-        return _tracepoint(name, nothing, ex, __module__, __source__)
+        return _tracepoint(name, nothing, body, __module__, __source__; kws...)
     end
 end
 
-macro tracepoint(ex::Expr)
-    if _is_func_def(ex)
-        return _tracepoint_func(nothing, ex, __module__, __source__)
+macro tracepoint(ex...)
+    body, kws = _extract_color(ex)
+    if _is_func_def(body)
+        return _tracepoint_func(nothing, body, __module__, __source__; kws...)
     else
         error("expected a zone name for @tracepoint")
     end
 end
 
-function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, source::LineNumberNode)
+function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, source::LineNumberNode; kws...)
     def = splitdef(ex)
     if haskey(def, :name)
         function_name = def[:name]
@@ -76,7 +116,7 @@ function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, s
     if haskey(def, :whereparams)
         def[:whereparams] = map(esc, def[:whereparams])
     end
-    def[:body] = _tracepoint(name, string(function_name), def[:body], mod, source)
+    def[:body] = _tracepoint(name, string(function_name), def[:body], mod, source; kws...)
     cdef = combinedef(def)
     # Replace function definition line number node with that from source
     @assert def[:body].args[1] isa LineNumberNode
@@ -84,15 +124,16 @@ function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, s
     return cdef
 end
 
-function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing}, ex::Expr, mod::Module, source::LineNumberNode)
+function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing}, ex::Expr, mod::Module, source::LineNumberNode; color::Union{Integer,Symbol,NTuple{3,Integer}}=0)
     filepath = string(source.file)
     line = source.line
 
-    srcloc = TracySrcLoc(name, func, filepath, line, 0, mod, true)
+    srcloc = TracySrcLoc(name, func, filepath, line, color, mod, true)
     push!(meta(mod), srcloc)
 
     N = length(meta(mod))
     m_id = getfield(mod, ID)
+
     return quote
         if tracepoint_enabled(Val($m_id), Val($N))
             if $srcloc.file == C_NULL
