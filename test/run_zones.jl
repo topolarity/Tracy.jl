@@ -83,4 +83,13 @@ foreach(n -> h(n), 1:30)
 i = @tracepoint x->(check_stacktrace(nothing, @__FILE__(), @__LINE__()); x^2)
 foreach(n -> i(n), 1:40)
 
+tracyplot_config("sin"; fill=false, color=0xFF00FF)
+tracyplot_config("cos"; format=:percentage, step=true, fill=true, color=0x0000FF)
+
+for x in range(0, 2pi, 100)
+    tracyplot("sin", sin(x))
+    tracyplot("cos", 100*cos(x))
+    sleep(0.005)
+end
+
 sleep(0.5)
