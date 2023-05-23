@@ -1,7 +1,7 @@
 """
     tracyplot_config(name::String; format::Symbol=:number, step::Bool=false, fill::Bool=true, color::Union{Integer,Symbol,NTuple{3, Integer}, Nothing}=nothing)
 
-Configures a plot with the given name. Should typically be called once.
+Configures a plot with the given name. Should typically be called once per plot.
 
 - The `format` parameter can be one of `:number`, `:memory`, or `:percentage`.
 - The `step`` parameter determines whether the plot will be displayed as a staircase or will smoothly change between plot points
