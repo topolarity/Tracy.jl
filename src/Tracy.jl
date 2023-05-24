@@ -36,7 +36,7 @@ include("msg.jl")
 include("plot.jl")
 
 
-export @tracepoint, tracyplot, tracyplot_config, tracymsg
+export @tracepoint, tracyplot, tracyplot_config, tracymsg, wait_for_tracy
 
 # Remaining public API is:
 #   - `enable_tracepoint`

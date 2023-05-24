@@ -14,3 +14,20 @@ function extract_keywords(ex0)
     end
     return kws, arg
 end
+
+"""
+    wait_for_tracy(;timeout::Float64 = 20.0)
+
+Waits up to `timeout` seconds for `libtracy` to connect to a listening capture
+agent.  If a timeout occurs, throws an `InvalidStateException`.
+"""
+function wait_for_tracy(;timeout::Float64 = 20.0)
+    t_start = time()
+    while (time() - t_start) < timeout
+        if (@ccall libtracy.___tracy_connected()::Cint) == 1
+            return
+        end
+        sleep(0.01)
+    end
+    throw(InvalidStateException("Could not connect to tracy client", :timeout))
+end
