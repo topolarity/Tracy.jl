@@ -31,3 +31,15 @@ function wait_for_tracy(;timeout::Float64 = 20.0)
     end
     throw(InvalidStateException("Could not connect to tracy client", :timeout))
 end
+
+"""
+    capture(outfile::String; gui::Bool = false, port::Int64 = 9001)
+
+Starts a Tracy capture agent running in the background.  Returns the `Cmd` object for use
+with `wait()`.
+
+!!! note
+    This command is only available if you also load `TracyProfiler_jll`.
+"""
+capture(outfile::String; kwargs...) = _capture(outfile, :dummy; kwargs...)
+_capture(outfile::String, dummy) = error("TracyProfiler_jll not loaded")
