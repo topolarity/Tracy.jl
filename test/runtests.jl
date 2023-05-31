@@ -33,10 +33,10 @@ else
 
 
     p = Tracy.capture(tracyfile; gui=connect_tracy_gui, port=tracy_port)
-    withenv("TRACYJL_WAIT_FOR_TRACY"=>1, "TRACY_PORT" => string(tracy_port)) do
-        code = "include($(repr(run_zones_path)))"
-        run(`$(Base.julia_cmd()) --project=$(dirname(Base.active_project())) -e $code`)
-    end
+    code = "include($(repr(run_zones_path)))"
+
+    run(addenv(`$(Base.julia_cmd()) --project=$(dirname(Base.active_project())) -e $code`,
+               "TRACYJL_WAIT_FOR_TRACY"=>1, "TRACY_PORT" => string(tracy_port)))
     wait(p)
 
     if !verify_csv_output
