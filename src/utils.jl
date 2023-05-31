@@ -36,7 +36,21 @@ end
     capture(outfile::String; gui::Bool = false, port::Int64 = 9001)
 
 Starts a Tracy capture agent running in the background.  Returns the `Cmd` object for use
-with `wait()`.
+with `wait()`.  Note that if you are using a tracy-enabled build of Julia, you will need
+to ensure that the capture agent is running before the Julia executable starts, otherwise
+the capture agent may not see the beginning of every zone, which it considers to be a
+fatal error.
+
+The recommended methodology for usage of this function is something similar to:
+
+```
+    port = 9000 + rand(1:1000)
+    p = Tracy.capture("inverter.tracy"; port)
+    run(addenv(`\$(Base.julia_cmd()) workload.jl`,
+               "TRACY_PORT" => string(port),
+               "JULIA_WAIT_FOR_TRACY" => "1"))
+    wait(p)
+```
 
 !!! note
     This command is only available if you also load `TracyProfiler_jll`.
