@@ -7,9 +7,7 @@ using Pkg
 
 if haskey(ENV, "TRACYJL_WAIT_FOR_TRACY")
     @info "Waiting for tracy to connect..."
-    while (@ccall Tracy.libtracy.___tracy_connected()::Cint) == 0
-        sleep(0.01)
-    end
+    wait_for_tracy()
     @info "Connected!"
 end
 
