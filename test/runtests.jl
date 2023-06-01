@@ -32,7 +32,11 @@ else
     tracyfile = joinpath(tmp, "tracyjltest.tracy")
 
 
-    p = Tracy.capture(tracyfile; gui=connect_tracy_gui, port=tracy_port)
+    if connect_tracy_gui
+        p = Tracy.guii(; port=tracy_port)
+    else
+        p = Tracy.capture(tracyfile; port=tracy_port)
+    end
     code = "include($(repr(run_zones_path)))"
 
     run(addenv(`$(Base.julia_cmd()) --project=$(dirname(Base.active_project())) -e $code`,
