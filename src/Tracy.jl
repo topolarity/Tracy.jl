@@ -20,6 +20,7 @@ module Tracy
 using LibTracyClient_jll: libTracyClient
 using Libdl: dllist, dlopen
 using ExprTools: splitdef, combinedef
+using Preferences: load_preference, has_preference
 
 const color_docstr = """
 - An integer: The hex code of the color as `0xRRGGBB`.
@@ -40,14 +41,12 @@ export @tracepoint, tracyplot, tracyplot_config, tracymsg, wait_for_tracy
 
 # Remaining public API is:
 #   - `enable_tracepoint`
-#   - `configure_tracepoint`
 #   - `@register_tracepoints`
 
 ###################
 # Private methods #
 ###################
 
-const ID = gensym(:id)
 const META = gensym(:meta)
 const METAType = Vector{TracySrcLoc}
 
@@ -61,28 +60,11 @@ end
 function initmeta(m::Module)
     if !isdefined(m, META) || getfield(m, META) === nothing
         Core.eval(m, :($META = $(METAType())))
-        Core.eval(m, :($ID() = nothing))
-        Core.eval(m, :($Tracy.tracepoint_enabled(::Val{$ID}, ::Val) = true))
     end
     nothing
 end
 
 const modules = Set{Module}()
-
-"""
-    tracepoint_enabled
-
-This function is used to implement a dispatch-based technique for "compile-time"
-enable/disable of individual tracepoints. The first parameter is a unique identifier
-generated for each client Module, and the second is an index corresponding to the
-`@tracepoint` generated in the module.
-
-These parameters are statically-known at all call-sites and the return value is
-either always true or always false, which makes it trivial for the compiler to elide
-the call to be totally elided and propagate its result, including any dead profiling
-zones that we'd like eliminated.
-"""
-tracepoint_enabled(::Val, ::Val) = true
 
 const BASE_TRACY_LIB = let
     base_tracy_libs = filter(contains("libTracyClient"), dllist())
@@ -100,16 +82,7 @@ function __init__()
         for m in modules
             for (i, srcloc) in enumerate(meta(m))
                 if pointer_from_objref(srcloc) == tracy_srcloc_ptr
-                    m_id = getfield(m, ID)
-                    old_enable = srcloc.enabled
-                    if enable != old_enable
-                        if old_enable == 0xFF
-                            Core.eval(m, :($Tracy.tracepoint_enabled(::Val{$m_id}, ::Val{$i}) = true))
-                        elseif enable == 0xFF
-                            Core.eval(m, :($Tracy.tracepoint_enabled(::Val{$m_id}, ::Val{$i}) = false))
-                        end
-                        srcloc.enabled = enable
-                    end
+                    srcloc.enabled = enable
                     return nothing
                 end
             end

@@ -1,0 +1,7 @@
+authors = ["Cody Tapscott <topolarity@tapscott.me>"]
+name = "TestPreferencesFiltered"
+uuid = "19092f08-f4e2-4f34-ae9a-deca232062c1"
+version = "0.1.0"
+
+[deps]
+Tracy = "e689c965-62c8-4b79-b2c5-8359227902fd"

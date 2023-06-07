@@ -1,0 +1,8 @@
+name = "TestPreferencesDisabled"
+uuid = "5966e6f6-9552-4fa2-9a8d-edd69af87d8e"
+authors = ["Cody Tapscott <topolarity@tapscott.me>"]
+version = "0.1.0"
+
+[deps]
+Preferences = "21216c6a-2e73-6563-6e65-726566657250"
+Tracy = "e689c965-62c8-4b79-b2c5-8359227902fd"

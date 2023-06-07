@@ -124,56 +124,95 @@ function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, s
     return cdef
 end
 
+root_module(m::Module) = parentmodule(m) === m ? m : root_module(parentmodule(m))
+
+
+# Example (Local)Preferences.toml:
+#
+# [MyPkg.Tracy]
+# enabled = true
+# whitelist = ['foo', 'bar.*']
+# blacklist = []
+function get_preferences(mod::Module)
+    root_mod = root_module(mod)
+    default_prefs = Dict{String,Any}()
+    if pathof(root_mod) !== nothing
+
+        # Load default Tracy preferences from the Preferences.toml for this project
+        root_dir = dirname(dirname(pathof(root_mod)))
+        preferences_toml_path = joinpath(root_dir, "Preferences.toml")
+
+        if isfile(preferences_toml_path)
+
+            # Technically by loading Preferences.toml ourselves we are bypassing the
+            # compile-time dependency tracking in Base, but the important behavior we
+            # care about is for top-level overrides to trigger pre-compilation of
+            # relevant dependencies, which does work.
+            #
+            # This does mean that you might have to `touch` source files locally to
+            # re-trigger pre-compilation if you are using Preferences.toml instead of
+            # LocalPreferences.toml
+
+            toml_dict = try Base.parsed_toml(preferences_toml_path) catch e
+                @warn "Failed to load Preferences.toml for $root_mod: $e"
+                Dict{String, Any}()
+            end
+            toml_dict = get(toml_dict, string(nameof(root_mod)), Dict{String, Any}())
+            default_prefs = get(toml_dict, "Tracy", Dict{String, Any}())
+        end
+    end
+
+    # Apply overrides from the top-level Preferences environment
+    # (typically a LocalPreferences.toml in the current project)
+
+    toplevel_prefs = try
+        load_preference(mod, "Tracy", Dict{String,Any}())
+    catch e
+        if !isa(e, ArgumentError)
+            rethrow(e)
+        end
+        Dict{String, Any}()
+    end
+
+    return Base.recursive_prefs_merge(default_prefs, toplevel_prefs)
+end
+
 function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing}, ex::Expr, mod::Module, source::LineNumberNode; color::Union{Integer,Symbol,NTuple{3,Integer}}=0)
     filepath = string(source.file)
     line = source.line
 
+    prefs = get_preferences(mod)
+    (get(prefs, "enabled", true) !== true) && return esc(ex) # No-op
+
+    whitelist = get(prefs, "whitelist", String[".*"])
+    blacklist = get(prefs, "blacklist", String[])
+
+    filter_name = ""
+    func !== nothing && (filter_name = func;)
+    name !== nothing && (filter_name = name;)
+
+    in_whitelist = mapreduce(pattern -> contains(filter_name, Regex(pattern)),
+                             Base.:(|), whitelist; init=false)
+    in_blacklist = mapreduce(pattern -> contains(filter_name, Regex(pattern)),
+                             Base.:(|), blacklist; init=false)
+    (!in_whitelist || in_blacklist) && return esc(ex) # No-op
+
     srcloc = TracySrcLoc(name, func, filepath, line, color, mod, true)
     push!(meta(mod), srcloc)
 
-    N = length(meta(mod))
-    m_id = getfield(mod, ID)
-
     return quote
-        if tracepoint_enabled(Val($m_id), Val($N))
-            if $srcloc.file == C_NULL
-                initialize!($srcloc)
-            end
-            local ctx = @ccall libtracy.___tracy_emit_zone_begin(pointer_from_objref($srcloc)::Ptr{Cvoid},
-                                                                 $srcloc.enabled::Cint)::TracyZoneContext
+        if $srcloc.file == C_NULL
+            initialize!($srcloc)
         end
+        local ctx = @ccall libtracy.___tracy_emit_zone_begin(pointer_from_objref($srcloc)::Ptr{Cvoid},
+                                                             $srcloc.enabled::Cint)::TracyZoneContext
         $(Expr(:tryfinally,
             :($(esc(ex))),
             quote
-                if tracepoint_enabled(Val($m_id), Val($N))
-                    @ccall libtracy.___tracy_emit_zone_end(ctx::TracyZoneContext)::Cvoid
-                end
+                @ccall libtracy.___tracy_emit_zone_end(ctx::TracyZoneContext)::Cvoid
             end
         ))
     end
-end
-
-"""
-    configure_tracepoint
-
-Enable/disable a set of tracepoint(s) in the provided modules by invalidating any
-existing code containing the tracepoint(s).
-
-!!! warning
-    This invalidates the code generated for all functions containing the selected zones.
-
-    This will trigger re-compilation for these functions and may cause undesirable latency.
-    It is strongly recommended to use `enable_tracepoint` instead.
-"""
-function configure_tracepoint(m::Module, enable::Bool; name="", func="", file="")
-    m_id = getfield(m, ID)
-    for (i, srcloc) in enumerate(meta(m))
-        contains(srcloc.name, name) || continue
-        contains(srcloc.func, func) || continue
-        contains(srcloc.file, file) || continue
-        Core.eval(m, :($Tracy.tracepoint_enabled(::Val{$m_id}, ::Val{$i}) = $enable))
-    end
-    return nothing
 end
 
 """

@@ -24,10 +24,21 @@ for i in 1:5
 end
 
 Pkg.develop(; path = joinpath(@__DIR__, "TestPkg"), io=devnull)
+
 # Test that a precompiled package also works,
 using TestPkg
 TestPkg.time_something()
 TestPkg.test_data()
+
+# Test that preferences also work
+Pkg.develop(; path = joinpath(@__DIR__, "TestPreferencesFiltered"), io=devnull)
+Pkg.develop(; path = joinpath(@__DIR__, "TestPreferencesDisabled"), io=devnull)
+
+using TestPreferencesFiltered
+TestPreferencesFiltered.time_something()
+
+using TestPreferencesDisabled
+TestPreferencesDisabled.time_something()
 
 @testset "msg" begin
     tracymsg(SubString("Hello, world!"); color=0xFF00FF)
