@@ -1,0 +1,4 @@
+[TestPreferencesFiltered.Tracy]
+enabled = true
+whitelist = ['testprefs_zone1', 'testprefs_zone2.*']
+blacklist = ['testprefs_zone22']

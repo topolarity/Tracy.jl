@@ -7,6 +7,8 @@ const tracy_port = 9001
 
 const run_zones_path = joinpath(@__DIR__, "run_zones.jl")
 const test_pkg_path = joinpath(@__DIR__, "TestPkg", "src", "TestPkg.jl")
+const test_pkg_prefs_filtered_path = joinpath(@__DIR__, "TestPreferencesFiltered", "src", "TestPreferencesFiltered.jl")
+const test_pkg_prefs_disabled_path = joinpath(@__DIR__, "TestPreferencesDisabled", "src", "TestPreferencesDisabled.jl")
 
 # Build map of `@tracepoint` names to line number:
 function parse_tracepoint_lines!(zone_lines::Dict{String,String}, file::AbstractString)
@@ -22,6 +24,8 @@ end
 const zone_lines = Dict{String,String}()
 parse_tracepoint_lines!(zone_lines, run_zones_path)
 parse_tracepoint_lines!(zone_lines, test_pkg_path)
+parse_tracepoint_lines!(zone_lines, test_pkg_prefs_filtered_path)
+parse_tracepoint_lines!(zone_lines, test_pkg_prefs_disabled_path)
 
 if !connect_tracy_capture && !connect_tracy_gui
     include(run_zones_path)
@@ -62,7 +66,11 @@ else
         end
 
         all_names_recorded = Set([z.name for z in zones])
-        all_names_expected = Set(["test tracepoint", "test exception", "timing", "zone f", "g", "hxT", "<anon>", "SLP", "SROA", "Inlining"])
+        all_names_expected = Set(["test tracepoint", "test exception", "timing",
+                                  "zone f", "g", "hxT", "<anon>", "SLP", "SROA", "Inlining",
+                                  "testprefs_zone1", "testprefs_zone2", "testprefs_zone21",
+                                  "testprefs_zone23", "testprefs_zone24"
+                                 ])
         @test all_names_recorded == all_names_expected
 
         @testset "check zone data" begin
@@ -75,9 +83,15 @@ else
                     @test zone.counts == "5"
                     @test zone.src_line == zone_lines[zone.name]
                 elseif zone.name == "timing"
-                    @test Base.samefile(zone.src_file, joinpath(@__DIR__, "TestPkg", "src", "TestPkg.jl"))
+                    @test Base.samefile(zone.src_file, test_pkg_path)
                     @test zone.counts == "100"
                     @test zone.src_line == zone_lines[zone.name]
+                elseif zone.name ∈ ["testprefs_zone1", "testprefs_zone2", "testprefs_zone21", "testprefs_zone23", "testprefs_zone24"]
+                    @test Base.samefile(zone.src_file, test_pkg_prefs_filtered_path)
+                    @test zone.counts == "100"
+                    @test zone.src_line == zone_lines[zone.name]
+                elseif zone.name == "timing_prefs_disabled"
+                    @test false
                 elseif zone.name == "zone f"
                     @test Base.samefile(zone.src_file, joinpath(@__DIR__, "run_zones.jl"))
                     @test zone.counts == "10"
@@ -102,7 +116,7 @@ else
                     @test zone.counts == "15"
                     @test zone.src_line == zone_lines[zone.name]
                 else
-                    error("unknown zone name")
+                    error("unknown zone name: $(zone.name)")
                 end
             end
         end
