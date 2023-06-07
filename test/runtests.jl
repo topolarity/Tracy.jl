@@ -1,4 +1,4 @@
-using Test
+using Test, Tracy
 
 const connect_tracy_capture = true
 const connect_tracy_gui = false # useful for manually inspecting the output
@@ -31,16 +31,16 @@ else
     tmp = mktempdir(; cleanup=false)#  mktempdir()
     tracyfile = joinpath(tmp, "tracyjltest.tracy")
 
-    if connect_tracy_gui
-        p = run(`$(TracyProfiler_jll.tracy()) -a 127.0.0.1 -p $(tracy_port)`; wait=false)
-    else
-        p = run(`$(TracyProfiler_jll.capture()) -p $(tracy_port) -o $tracyfile -f`; wait=false)
-    end
 
-    withenv("TRACYJL_WAIT_FOR_TRACY"=>1, "TRACY_PORT" => string(tracy_port)) do
-        code = "include($(repr(run_zones_path)))"
-        run(`$(Base.julia_cmd()) --project=$(dirname(Base.active_project())) -e $code`)
+    if connect_tracy_gui
+        p = Tracy.guii(; port=tracy_port)
+    else
+        p = Tracy.capture(tracyfile; port=tracy_port)
     end
+    code = "include($(repr(run_zones_path)))"
+
+    run(addenv(`$(Base.julia_cmd()) --project=$(dirname(Base.active_project())) -e $code`,
+               "TRACYJL_WAIT_FOR_TRACY"=>1, "TRACY_PORT" => string(tracy_port)))
     wait(p)
 
     if !verify_csv_output

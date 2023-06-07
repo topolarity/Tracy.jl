@@ -31,3 +31,33 @@ function wait_for_tracy(;timeout::Float64 = 20.0)
     end
     throw(InvalidStateException("Could not connect to tracy client", :timeout))
 end
+
+"""
+    capture(outfile::String; port::Integer = 9001)
+    gui(; port::Integer = 9001)
+
+Starts a Tracy capture agent running in the background.  Returns the `Cmd` object for use
+with `wait()`.  Note that if you are using a tracy-enabled build of Julia, you will need
+to ensure that the capture agent is running before the Julia executable starts, otherwise
+the capture agent may not see the beginning of every zone, which it considers to be a
+fatal error.
+
+The recommended methodology for usage of this function is something similar to:
+
+```
+    port = 9000 + rand(1:1000)
+    p = Tracy.capture("my_workload.tracy"; port)
+    run(addenv(`\$(Base.julia_cmd()) workload.jl`,
+               "TRACY_PORT" => string(port),
+               "JULIA_WAIT_FOR_TRACY" => "1"))
+    wait(p)
+```
+
+!!! note
+    This command is only available if you also load `TracyProfiler_jll`.
+"""
+capture(outfile::String; kwargs...) = _capture(outfile, :dummy; kwargs...)
+_capture(outfile::String, dummy; kwargs...) = error("TracyProfiler_jll not loaded")
+
+gui(;kwargs...) = _gui(:dummy, kwargs...)
+_gui(dummy; kwargs...) = error("TracyProfiler_jll not loaded")
