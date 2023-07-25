@@ -144,7 +144,7 @@ function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing},
                                                                  $srcloc.enabled::Cint)::TracyZoneContext
             tls = task_local_storage()
             hadkey = haskey(tls, TRACY_CONTEXT_TLS_KEY)
-            old = get(tls, TRACY_CONTEXT_TLS_KEY, nothing)
+            old = get(tls, TRACY_CONTEXT_TLS_KEY, nothing)::Union{TracyZoneContext, Nothing}
             tls[TRACY_CONTEXT_TLS_KEY] = ctx
         end
         $(Expr(:tryfinally,
