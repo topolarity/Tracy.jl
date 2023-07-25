@@ -33,7 +33,7 @@ end
 ##################
 
 """
-    @tracepoint "name" color=<color> <expression>
+    @tracepoint "name" color=<color> enabled=<expr> <expression>
 
 Code you'd like to trace should be wrapped with `@tracepoint`
 
@@ -50,7 +50,8 @@ end
 ```
 
 The name of the tracepoint must be a literal string, and it cannot
-be changed at runtime.
+be changed at runtime. The tracepoint can be dynamically disabled or enabled
+by using the `enabled` keyword argument which should be a boolean expression.
 
 The (default) color of the zone can be configured
 with the `color` keyword argument to the macro which should be a literal that can either be:
@@ -77,11 +78,15 @@ julia> x = rand(10,10);
 
 julia> @tracepoint "multiply" x * x;
 
-julia> @tracepoint "pow2" color=:green x^2 # green
+julia> @tracepoint "pow2" color=:green x^2; # green
 
-julia> @tracepoint "pow3" color=:0xFF0000 x^3 # red
+julia> @tracepoint "pow3" color=:0xFF0000 x^3; # red
 
-julia> @tracepoint "pow4" color=(255, 165, 0) x^4 # orange
+julia> @tracepoint "pow4" color=(255, 165, 0) x^4; # orange
+
+julia> timings_enabled() = rand() < 0.5;
+
+julia> @tracepoint "pow5" enabled=timings_enabled() x^5; # enabled only if timings_enabled() is true
 ```
 
 If you don't have Tracy installed, you can install `TracyProfiler_jll`
@@ -125,7 +130,7 @@ function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, s
     return cdef
 end
 
-function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing}, ex::Expr, mod::Module, source::LineNumberNode; color::Union{Integer,Symbol,NTuple{3,Integer}}=0)
+function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing}, ex::Expr, mod::Module, source::LineNumberNode; color::Union{Integer,Symbol,NTuple{3,Integer}}=0, enabled=true)
     filepath = string(source.file)
     line = source.line
 
@@ -140,8 +145,9 @@ function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing},
             if $srcloc.file == C_NULL
                 initialize!($srcloc)
             end
+            enabled = $(esc(enabled))::Bool
             local ctx = @ccall libtracy.___tracy_emit_zone_begin(pointer_from_objref($srcloc)::Ptr{Cvoid},
-                                                                 $srcloc.enabled::Cint)::TracyZoneContext
+                                                                 enabled::Cint)::TracyZoneContext
             tls = task_local_storage()
             stack = get!(Vector{TracyZoneContext}, tls, TRACY_CONTEXT_TLS_KEY)::Vector{TracyZoneContext}
             push!(stack, ctx)
