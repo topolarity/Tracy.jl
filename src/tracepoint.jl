@@ -147,7 +147,7 @@ function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing},
             end
             enabled = $(esc(enabled))::Bool
             local ctx = @ccall libtracy.___tracy_emit_zone_begin(pointer_from_objref($srcloc)::Ptr{Cvoid},
-                                                                 enabled::Cint)::TracyZoneContext
+                                                                 ($srcloc.enabled != 0 && enabled)::Cint)::TracyZoneContext
             tls = task_local_storage()
             stack = get!(Vector{TracyZoneContext}, tls, TRACY_CONTEXT_TLS_KEY)::Vector{TracyZoneContext}
             push!(stack, ctx)
