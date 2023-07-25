@@ -143,9 +143,8 @@ function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing},
             local ctx = @ccall libtracy.___tracy_emit_zone_begin(pointer_from_objref($srcloc)::Ptr{Cvoid},
                                                                  $srcloc.enabled::Cint)::TracyZoneContext
             tls = task_local_storage()
-            hadkey = haskey(tls, TRACY_CONTEXT_TLS_KEY)
-            old = get(tls, TRACY_CONTEXT_TLS_KEY, nothing)::Union{TracyZoneContext, Nothing}
-            tls[TRACY_CONTEXT_TLS_KEY] = ctx
+            stack = get!(Vector{TracyZoneContext}, tls, TRACY_CONTEXT_TLS_KEY)::Vector{TracyZoneContext}
+            push!(stack, ctx)
         end
         $(Expr(:tryfinally,
             :($(esc(ex))),
@@ -153,13 +152,19 @@ function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing},
                 if tracepoint_enabled(Val($m_id), Val($N))
                     @ccall libtracy.___tracy_emit_zone_end(ctx::TracyZoneContext)::Cvoid
                 end
-                hadkey ? (tls[TRACY_CONTEXT_TLS_KEY] = old) : delete!(tls, TRACY_CONTEXT_TLS_KEY)
+                pop!(stack)
             end
         ))
     end
 end
 
-_get_current_tracy_ctx() = get(task_local_storage(), TRACY_CONTEXT_TLS_KEY, nothing)
+function _get_current_tracy_ctx()
+    ctx_v = get(task_local_storage(), TRACY_CONTEXT_TLS_KEY, nothing)
+    if ctx_v === nothing
+        error("must be called from within a @tracepoint")
+    end
+    return ctx_v[end]
+end
 
 """
     set_zone_name!(name)
@@ -168,9 +173,6 @@ Set the name of the current zone. This must be called from within a `@tracepoint
 """
 function set_zone_name!(name)
     ctx = _get_current_tracy_ctx()
-    if ctx === nothing
-        error("set_zone_name must be called from within a @tracepoint")
-    end
     str = string(name)
     @ccall libtracy.___tracy_emit_zone_name(ctx::TracyZoneContext, str::Ptr{UInt8}, length(str)::Csize_t)::Cvoid
     return nothing
@@ -183,9 +185,6 @@ Set the color of the current zone. This must be called from within a `@tracepoin
 """
 function set_zone_color!(color::Union{Integer,Symbol,NTuple{3,Integer}})
     ctx = _get_current_tracy_ctx()
-    if ctx === nothing
-        error("set_zone_color must be called from within a @tracepoint")
-    end
     @ccall libtracy.___tracy_emit_zone_color(ctx::TracyZoneContext, _tracycolor(color)::UInt32)::Cvoid
     return nothing
 end
