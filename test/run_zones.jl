@@ -154,4 +154,10 @@ for color in generate_rainbow(n_outer)
     end
 end
 
+for i in 1:10
+    @tracepoint "conditionally disabled" enabled=isodd(i) begin
+        sleep(0.01)
+    end
+end
+
 sleep(0.5)

@@ -63,7 +63,8 @@ else
 
         all_names_recorded = Set([z.name for z in zones])
         all_names_expected = Set(["test tracepoint", "test exception", "timing", "zone f", "g", "hxT",
-                                  "<anon>", "SLP", "SROA", "Inlining", "rainbow outer", "rainbow inner"])
+                                  "<anon>", "SLP", "SROA", "Inlining", "rainbow outer", "rainbow inner",
+                                  "conditionally disabled"])
         @test all_names_recorded == all_names_expected
 
         @testset "check zone data" begin
@@ -104,6 +105,8 @@ else
                     @test zone.src_line == zone_lines[zone.name]
                 elseif zone.name == "rainbow outer"
                 elseif zone.name == "rainbow inner"
+                elseif zone.name == "conditionally disabled"
+                    @test zone.counts == "5"
                 else
                     error("unknown zone name")
                 end
