@@ -1,6 +1,7 @@
 # This file is a part of Tracy.jl. License is MIT: See LICENSE.md
 
 _is_func_def(ex) = Meta.isexpr(ex, :function) || Base.is_short_function_def(ex) || Meta.isexpr(ex, :->)
+const TRACY_CONTEXT_TLS_KEY = :current_tracy_ctx
 
 function _extract_color(ex)
     kws, body = extract_keywords(ex)
@@ -141,6 +142,9 @@ function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing},
             end
             local ctx = @ccall libtracy.___tracy_emit_zone_begin(pointer_from_objref($srcloc)::Ptr{Cvoid},
                                                                  $srcloc.enabled::Cint)::TracyZoneContext
+            tls = task_local_storage()
+            stack = get!(Vector{TracyZoneContext}, tls, TRACY_CONTEXT_TLS_KEY)::Vector{TracyZoneContext}
+            push!(stack, ctx)
         end
         $(Expr(:tryfinally,
             :($(esc(ex))),
@@ -148,9 +152,41 @@ function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing},
                 if tracepoint_enabled(Val($m_id), Val($N))
                     @ccall libtracy.___tracy_emit_zone_end(ctx::TracyZoneContext)::Cvoid
                 end
+                pop!(stack)
             end
         ))
     end
+end
+
+function _get_current_tracy_ctx()
+    ctx_v = get(task_local_storage(), TRACY_CONTEXT_TLS_KEY, nothing)
+    if ctx_v === nothing
+        error("must be called from within a @tracepoint")
+    end
+    return ctx_v[end]
+end
+
+"""
+    set_zone_name!(name)
+
+Set the name of the current zone. This must be called from within a `@tracepoint`.
+"""
+function set_zone_name!(name)
+    ctx = _get_current_tracy_ctx()
+    str = string(name)
+    @ccall libtracy.___tracy_emit_zone_name(ctx::TracyZoneContext, str::Ptr{UInt8}, length(str)::Csize_t)::Cvoid
+    return nothing
+end
+
+"""
+    set_zone_color!(color::Union{Integer,Symbol,NTuple{3,Integer}})
+
+Set the color of the current zone. This must be called from within a `@tracepoint`.
+"""
+function set_zone_color!(color::Union{Integer,Symbol,NTuple{3,Integer}})
+    ctx = _get_current_tracy_ctx()
+    @ccall libtracy.___tracy_emit_zone_color(ctx::TracyZoneContext, _tracycolor(color)::UInt32)::Cvoid
+    return nothing
 end
 
 """

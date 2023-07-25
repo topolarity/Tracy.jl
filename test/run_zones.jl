@@ -106,4 +106,52 @@ for j in 1:15
     end
 end
 
+function hsv_to_rgb(h, s, v)
+    h = h / 60
+    i = floor(h)
+    f = h - i
+    p = v * (1 - s)
+    q = v * (1 - s * f)
+    t = v * (1 - s * (1 - f))
+
+    if i == 0
+        r, g, b = v, t, p
+    elseif i == 1
+        r, g, b = q, v, p
+    elseif i == 2
+        r, g, b = p, v, t
+    elseif i == 3
+        r, g, b = p, q, v
+    elseif i == 4
+        r, g, b = t, p, v
+    else
+        r, g, b = v, p, q
+    end
+
+    r, g, b = round(Int, r * 255), round(Int, g * 255), round(Int, b * 255)
+
+    return (r, g, b)
+end
+
+function generate_rainbow(n)
+    return [hsv_to_rgb(i * 360 / n, 1, 1) for i in 0:(n-1)]
+end
+
+n_outer = 50
+n_inner = 10
+
+for color in generate_rainbow(n_outer)
+    @tracepoint "rainbow outer" begin
+        set_zone_name!(string(color))
+        set_zone_color!(color)
+        for color in  generate_rainbow(n_inner)
+            @tracepoint "rainbow inner" begin
+                set_zone_name!(string(color))
+                set_zone_color!(color)
+                sleep(0.1 / (n_inner * n_outer))
+            end
+        end
+    end
+end
+
 sleep(0.5)
