@@ -80,6 +80,10 @@ end
 foreach(n -> h(n), 1:30)
 i = @tracepoint x->(check_stacktrace(nothing, @__FILE__(), @__LINE__()); x^2)
 foreach(n -> i(n), 1:40)
+@tracepoint "kwargs_func" function j(x; pow=2)
+    x^pow
+end
+foreach(n -> j(n; pow=3), 1:20)
 
 tracyplot_config("sin"; fill=false, color=0xFF00FF)
 tracyplot_config("cos"; format=:percentage, step=true, fill=true, color=0x0000FF)

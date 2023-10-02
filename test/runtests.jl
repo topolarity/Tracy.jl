@@ -62,7 +62,7 @@ else
         end
 
         all_names_recorded = Set([z.name for z in zones])
-        all_names_expected = Set(["test tracepoint", "test exception", "timing", "zone f", "g", "hxT",
+        all_names_expected = Set(["test tracepoint", "test exception", "timing", "zone f", "g", "hxT", "kwargs_func",
                                   "<anon>", "SLP", "SROA", "Inlining", "rainbow outer", "rainbow inner",
                                   "conditionally disabled"])
         @test all_names_recorded == all_names_expected
@@ -89,6 +89,8 @@ else
                     # so it's a little tougher to check that its source
                     # line is correct, especially since we don't even have
                     # the `g()` function object to ask the lineinfo from.
+                elseif zone.name == "kwargs_func"
+                    @test zone.counts == "20"
                 elseif zone.name == "hxT"
                     @test zone.counts == "30"
                     @test zone.src_line == zone_lines[zone.name]
