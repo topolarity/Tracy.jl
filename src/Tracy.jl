@@ -17,8 +17,9 @@ codegen, GC, and runtime-internal mutexes/locks.
 """
 module Tracy
 
+using Base.Linking: private_libdir
 using LibTracyClient_jll: libTracyClient
-using Libdl: dllist, dlopen
+using Libdl: dllist, dlopen, dlext
 using ExprTools: splitdef, combinedef
 
 const color_docstr = """
@@ -83,18 +84,20 @@ the call to be totally elided and propagate its result, including any dead profi
 zones that we'd like eliminated.
 """
 tracepoint_enabled(::Val, ::Val) = true
-
-const BASE_TRACY_LIB = let
-    base_tracy_libs = filter(contains("libTracyClient"), dllist())
-    isempty(base_tracy_libs) ? nothing : first(base_tracy_libs)
-end
 libtracy::String = ""
 
 # Register telemetry callbacks with Tracy
 #
 # This is what allows `@tracepoint`s to be toggled from within the Tracy GUI
 function __init__()
-    global libtracy = something(BASE_TRACY_LIB, libTracyClient)
+    base_tracy_lib = try
+        path = joinpath(private_libdir(), "libTracyClient.$(dlext)")
+        dlopen(path)
+        path
+    catch e
+        @assert e isa ErrorException && contains(e.msg, "could not load library")
+    end
+    global libtracy = something(base_tracy_lib, libTracyClient)
     toggle_fn = @cfunction((data, tracy_srcloc_ptr, enable_ptr) -> begin
         enable = unsafe_load(enable_ptr)
         for m in modules
