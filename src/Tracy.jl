@@ -17,7 +17,7 @@ codegen, GC, and runtime-internal mutexes/locks.
 """
 module Tracy
 
-using Base.Linking: private_libdir
+using Base.Linking: libdir, private_libdir
 using LibTracyClient_jll: libTracyClient
 using Libdl: dllist, dlopen, dlext
 using ExprTools: splitdef, combinedef
@@ -96,6 +96,15 @@ function __init__()
         path
     catch e
         @assert e isa ErrorException && contains(e.msg, "could not load library")
+        try
+            # When compiled locally without installation, libTracyClient might be in
+            # the non-private libdir
+            path = joinpath(libdir(), "libTracyClient.$(dlext)")
+            dlopen(path)
+            path
+        catch e
+            @assert e isa ErrorException && contains(e.msg, "could not load library")
+        end
     end
     global libtracy = something(base_tracy_lib, libTracyClient)
     toggle_fn = @cfunction((data, tracy_srcloc_ptr, enable_ptr) -> begin
