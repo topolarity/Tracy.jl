@@ -52,20 +52,38 @@ const ID = gensym(:id)
 const META = gensym(:meta)
 const METAType = Vector{TracySrcLoc}
 
-function meta(m::Module; autoinit::Bool=true)
-    if !isdefined(m, META) || getfield(m, META) === nothing
-        autoinit ? initmeta(m) : return nothing
+@static if VERSION >= v"1.12-DEV"
+    function meta(m::Module; autoinit::Bool=true)
+        if !isdefinedglobal(m, META)
+            autoinit ? invokelatest(initmeta, m) : return nothing
+        end
+        return invokelatest(getfield, m, META)::METAType
     end
-    return getfield(m, META)::METAType
-end
 
-function initmeta(m::Module)
-    if !isdefined(m, META) || getfield(m, META) === nothing
-        Core.eval(m, :($META = $(METAType())))
-        Core.eval(m, :($ID() = nothing))
-        Core.eval(m, :($Tracy.tracepoint_enabled(::Val{$ID}, ::Val) = true))
+    function initmeta(m::Module)
+        if !isdefinedglobal(m, META)
+            Core.eval(m, :($META = $(METAType())))
+            Core.eval(m, :($ID() = nothing))
+            Core.eval(m, :($Tracy.tracepoint_enabled(::Val{$ID}, ::Val) = true))
+        end
+        nothing
     end
-    nothing
+else
+    function meta(m::Module; autoinit::Bool=true)
+        if !isdefined(m, META) || getfield(m, META) === nothing
+            autoinit ? initmeta(m) : return nothing
+        end
+        return getfield(m, META)::METAType
+    end
+
+    function initmeta(m::Module)
+        if !isdefined(m, META) || getfield(m, META) === nothing
+            Core.eval(m, :($META = $(METAType())))
+            Core.eval(m, :($ID() = nothing))
+            Core.eval(m, :($Tracy.tracepoint_enabled(::Val{$ID}, ::Val) = true))
+        end
+        nothing
+    end
 end
 
 const modules = Set{Module}()
@@ -112,7 +130,7 @@ function __init__()
         for m in modules
             for (i, srcloc) in enumerate(meta(m))
                 if pointer_from_objref(srcloc) == tracy_srcloc_ptr
-                    m_id = getfield(m, ID)
+                    m_id = invokelatest(getfield, m, ID)
                     old_enable = srcloc.enabled
                     if enable != old_enable
                         if old_enable == 0xFF
