@@ -141,7 +141,7 @@ function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing},
     push!(meta(mod), srcloc)
 
     N = length(meta(mod))
-    m_id = getfield(mod, ID)
+    m_id = invokelatest(getfield, mod, ID)
 
     return quote
         if tracepoint_enabled(Val($m_id), Val($N))
@@ -211,7 +211,7 @@ existing code containing the tracepoint(s).
     It is strongly recommended to use `enable_tracepoint` instead.
 """
 function configure_tracepoint(m::Module, enable::Bool; name="", func="", file="")
-    m_id = getfield(m, ID)
+    m_id = invokelatest(getfield, m, ID)
     for (i, srcloc) in enumerate(meta(m))
         contains(srcloc.name, name) || continue
         contains(srcloc.func, func) || continue
