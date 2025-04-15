@@ -59,5 +59,5 @@ The recommended methodology for usage of this function is something similar to:
 capture(outfile::String; kwargs...) = _capture(outfile, :dummy; kwargs...)
 _capture(outfile::String, dummy; kwargs...) = error("TracyProfiler_jll not loaded")
 
-gui(;kwargs...) = _gui(:dummy, kwargs...)
+gui(;kwargs...) = _gui(:dummy; kwargs...)
 _gui(dummy; kwargs...) = error("TracyProfiler_jll not loaded")
