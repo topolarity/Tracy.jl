@@ -188,6 +188,18 @@ function set_zone_name!(name)
 end
 
 """
+    set_zone_text!(name)
+
+Set the text of the current zone. This must be called from within a `@tracepoint`.
+"""
+function set_zone_text!(name)
+    ctx = _get_current_tracy_ctx()
+    str = string(name)
+    @ccall libtracy.___tracy_emit_zone_text(ctx::TracyZoneContext, str::Ptr{UInt8}, length(str)::Csize_t)::Cvoid
+    return nothing
+end
+
+"""
     set_zone_color!(color::Union{Integer,Symbol,NTuple{3,Integer}})
 
 Set the color of the current zone. This must be called from within a `@tracepoint`.
