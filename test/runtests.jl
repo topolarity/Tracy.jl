@@ -33,7 +33,7 @@ else
 
 
     if connect_tracy_gui
-        p = Tracy.guii(; port=tracy_port)
+        p = Tracy.gui(; port=tracy_port)
     else
         p = Tracy.capture(tracyfile; port=tracy_port)
     end
