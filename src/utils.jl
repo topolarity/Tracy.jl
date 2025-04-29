@@ -44,13 +44,13 @@ fatal error.
 
 The recommended methodology for usage of this function is something similar to:
 
-```
-    port = 9000 + rand(1:1000)
-    p = Tracy.capture("my_workload.tracy"; port)
-    run(addenv(`\$(Base.julia_cmd()) workload.jl`,
-               "TRACY_PORT" => string(port),
-               "JULIA_WAIT_FOR_TRACY" => "1"))
-    wait(p)
+```julia
+port = 9000 + rand(1:1000)
+p = Tracy.capture("my_workload.tracy"; port)
+run(addenv(`\$(Base.julia_cmd()) workload.jl`,
+           "TRACY_PORT" => string(port),
+           "JULIA_WAIT_FOR_TRACY" => "1"))
+wait(p)
 ```
 
 !!! note

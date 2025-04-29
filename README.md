@@ -11,13 +11,13 @@ A flexible profiling tool for tracing Julia code, LLVM compilation, Garbage Coll
 Code you'd like to trace should be wrapped with `@tracepoint`
 
 ```julia
-    @tracepoint "name" <expression>
+@tracepoint "name" <expression>
 ```
 
 Typically the expression will be a `begin-end` block:
 
 ```julia
-    @tracepoint "data aggregation" begin
-        # lots of compute here...
-    end
+@tracepoint "data aggregation" begin
+    # lots of compute here...
+end
 ```
