@@ -13,7 +13,7 @@ TracyProfiler_jll = "0c351ed6-8a68-550e-8b79-de6f926da83c"
 
 [compat]
 ExprTools = "0.1"
-julia = "1.6"
+julia = "1.11"
 
 [extensions]
 TracyProfilerExt = "TracyProfiler_jll"
