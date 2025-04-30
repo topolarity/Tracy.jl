@@ -147,10 +147,12 @@ n_inner = 10
 for color in generate_rainbow(n_outer)
     @tracepoint "rainbow outer" begin
         set_zone_name!(string(color))
+        set_zone_text!(string(color))
         set_zone_color!(color)
         for color in  generate_rainbow(n_inner)
             @tracepoint "rainbow inner" begin
                 set_zone_name!(string(color))
+                set_zone_text!(string(color))
                 set_zone_color!(color)
                 sleep(0.1 / (n_inner * n_outer))
             end
@@ -163,5 +165,13 @@ for i in 1:10
         sleep(0.01)
     end
 end
+
+ran = Ref(false)
+@tracepoint "disabled" enabled=false begin
+    set_zone_name!("disabled")
+    set_zone_text!("disabled")
+    ran[] = true
+end
+@test ran[]
 
 sleep(0.5)
