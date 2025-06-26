@@ -118,12 +118,17 @@ function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, s
     else
         function_name = :var"<anon>"
     end
-    def[:args] = map(esc, def[:args])
+    if haskey(def, :args)
+        def[:args] = map(esc, def[:args])
+    end
     if haskey(def, :kwargs)
         def[:kwargs] = map(esc, def[:kwargs])
     end
     if haskey(def, :whereparams)
         def[:whereparams] = map(esc, def[:whereparams])
+    end
+    if haskey(def, :rtype)
+        def[:rtype] = esc(def[:rtype])
     end
     def[:body] = _tracepoint(name, string(function_name), def[:body], mod, source; kws...)
     cdef = combinedef(def)
