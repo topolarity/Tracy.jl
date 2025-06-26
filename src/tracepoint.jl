@@ -118,7 +118,9 @@ function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, s
     else
         function_name = :var"<anon>"
     end
-    def[:args] = map(esc, def[:args])
+    if haskey(def, :args)
+        def[:args] = map(esc, def[:args])
+    end
     if haskey(def, :kwargs)
         def[:kwargs] = map(esc, def[:kwargs])
     end
