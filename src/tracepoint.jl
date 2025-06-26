@@ -127,7 +127,11 @@ function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, s
     if haskey(def, :whereparams)
         def[:whereparams] = map(esc, def[:whereparams])
     end
+    if haskey(def, :rtype)
+        def[:rtype] = esc(def[:rtype])
+    end
     def[:body] = _tracepoint(name, string(function_name), def[:body], mod, source; kws...)
+    Main.eval(:(def = $def))
     cdef = combinedef(def)
     # Replace function definition line number node with that from source
     @assert def[:body].args[1] isa LineNumberNode

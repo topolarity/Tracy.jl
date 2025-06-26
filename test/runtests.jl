@@ -62,7 +62,7 @@ else
         end
 
         all_names_recorded = Set([z.name for z in zones])
-        all_names_expected = Set(["has_no_arguments", "test tracepoint", "test exception", "timing", "zone f", "g", "hxT", "kwargs_func",
+        all_names_expected = Set(["has_return_type_annotation", "has_no_arguments", "test tracepoint", "test exception", "timing", "zone f", "g", "hxT", "kwargs_func",
                                   "<anon>", "SLP", "SROA", "Inlining", "rainbow outer", "rainbow inner",
                                   "conditionally disabled"])
         @test all_names_recorded == all_names_expected
@@ -108,6 +108,7 @@ else
                 elseif zone.name == "rainbow outer"
                 elseif zone.name == "rainbow inner"
                 elseif zone.name == "has_no_arguments"
+                elseif zone.name == "has_return_type_annotation"
                 elseif zone.name == "conditionally disabled"
                     @test zone.counts == "5"
                 else
