@@ -1,7 +1,6 @@
 # This file is a part of Tracy.jl. License is MIT: See LICENSE.md
 
 _is_func_def(ex) = Meta.isexpr(ex, :function) || Base.is_short_function_def(ex) || Meta.isexpr(ex, :->)
-const TRACY_CONTEXT_TLS_KEY = :current_tracy_ctx
 
 function _extract_color(ex)
     kws, body = extract_keywords(ex)
@@ -138,6 +137,9 @@ function _tracepoint_func(name::Union{String, Nothing}, ex::Expr, mod::Module, s
     return cdef
 end
 
+import Base.ScopedValues: ScopedValue, @with
+const TRACY_CONTEXT = ScopedValue{TracyZoneContext}()
+
 function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing}, ex::Expr, mod::Module, source::LineNumberNode; color::Union{Integer,Symbol,NTuple{3,Integer}}=0, enabled=true)
     filepath = string(source.file)
     line = source.line
@@ -156,28 +158,26 @@ function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing},
             enabled = $(esc(enabled))::Bool
             local ctx = @ccall libtracy.___tracy_emit_zone_begin(pointer_from_objref($srcloc)::Ptr{Cvoid},
                                                                  ($srcloc.enabled != 0 && enabled)::Cint)::TracyZoneContext
-            tls = task_local_storage()
-            stack = get!(Vector{TracyZoneContext}, tls, TRACY_CONTEXT_TLS_KEY)::Vector{TracyZoneContext}
-            push!(stack, ctx)
-        end
-        $(Expr(:tryfinally,
-            :($(esc(ex))),
-            quote
-                if tracepoint_enabled(Val($m_id), Val($N))
+            # Maybe we need a @with_finally
+            $(Expr(:tryfinally,
+                :($(esc(ex))),
+                quote
                     @ccall libtracy.___tracy_emit_zone_end(ctx::TracyZoneContext)::Cvoid
-                end
-                pop!(stack)
-            end
-        ))
+                end,
+                :(Base.ScopedValues.Scope(Core.current_scope(), TRACY_CONTEXT => ctx))
+            ))
+        else
+            $(esc(ex))
+        end
     end
 end
 
 function _get_current_tracy_ctx()
-    ctx_v = get(task_local_storage(), TRACY_CONTEXT_TLS_KEY, nothing)
-    if ctx_v === nothing
+    ctx = Base.ScopedValues.get(TRACY_CONTEXT)
+    if ctx === nothing
         error("must be called from within a @tracepoint")
     end
-    return ctx_v[end]
+    return something(ctx)
 end
 
 """
