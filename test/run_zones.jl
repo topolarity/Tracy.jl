@@ -11,6 +11,13 @@ if haskey(ENV, "TRACYJL_WAIT_FOR_TRACY")
     @info "Connected!"
 end
 
+@tracepoint function has_no_arguments() end
+has_no_arguments()
+
+struct NotDefinedInsideTracy end
+@tracepoint has_return_type_annotation()::NotDefinedInsideTracy = NotDefinedInsideTracy()
+has_return_type_annotation()
+
 for i in 1:3
     @tracepoint "test tracepoint" begin
         println("Hello, world!")
