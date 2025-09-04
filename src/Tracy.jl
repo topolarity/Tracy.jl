@@ -53,7 +53,7 @@ const META = gensym(:meta)
 const METAType = Vector{TracySrcLoc}
 
 @static if VERSION >= v"1.12-DEV"
-    function meta(m::Module; autoinit::Bool=true)
+    function meta(m::Module, autoinit::Bool=true)
         if !isdefinedglobal(m, META)
             autoinit ? invokelatest(initmeta, m) : return nothing
         end
@@ -69,7 +69,7 @@ const METAType = Vector{TracySrcLoc}
         nothing
     end
 else
-    function meta(m::Module; autoinit::Bool=true)
+    function meta(m::Module, autoinit::Bool=true)
         if !isdefined(m, META) || getfield(m, META) === nothing
             autoinit ? initmeta(m) : return nothing
         end
