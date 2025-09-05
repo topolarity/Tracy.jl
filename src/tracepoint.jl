@@ -143,9 +143,9 @@ function _tracepoint(name::Union{String, Nothing}, func::Union{String, Nothing},
     line = source.line
 
     srcloc = TracySrcLoc(name, func, filepath, line, color, mod, true)
-    push!(meta(mod), srcloc)
+    push!(tracymeta(mod), srcloc)
 
-    N = length(meta(mod))
+    N = length(tracymeta(mod))
     m_id = invokelatest(getfield, mod, ID)
 
     return quote
@@ -217,7 +217,7 @@ existing code containing the tracepoint(s).
 """
 function configure_tracepoint(m::Module, enable::Bool; name="", func="", file="")
     m_id = invokelatest(getfield, m, ID)
-    for (i, srcloc) in enumerate(meta(m))
+    for (i, srcloc) in enumerate(tracymeta(m))
         contains(srcloc.name, name) || continue
         contains(srcloc.func, func) || continue
         contains(srcloc.file, file) || continue
@@ -233,7 +233,7 @@ Enable/disable a set of tracepoint(s) in the provided modules, based on whether 
 match the filters provided for `name`/`func`/`file`.
 """
 function enable_tracepoint(m::Module, enable::Bool; name="", func="", file="")
-    for srcloc in meta(m)
+    for srcloc in tracymeta(m)
         contains(srcloc.name, name) || continue
         contains(srcloc.func, func) || continue
         contains(srcloc.file, file) || continue
@@ -250,7 +250,7 @@ haven't been run yet. Using this macro is optional, but it's recommended to call
 from within your module's `__init__` method.
 """
 macro register_tracepoints()
-    srclocs = meta(__module__)
+    srclocs = tracymeta(__module__)
     return quote
         push!($modules, $__module__)
         foreach($Tracy.initialize!, $srclocs)

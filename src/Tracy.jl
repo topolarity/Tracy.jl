@@ -49,11 +49,11 @@ export @tracepoint, tracyplot, tracyplot_config, tracymsg, wait_for_tracy, set_z
 ###################
 
 const ID = gensym(:id)
-const META = gensym(:meta)
+const META = gensym(:tracymeta)
 const METAType = Vector{TracySrcLoc}
 
 @static if VERSION >= v"1.12-DEV"
-    function meta(m::Module; autoinit::Bool=true)
+    function tracymeta(m::Module; autoinit::Bool=true)
         if !isdefinedglobal(m, META)
             autoinit ? invokelatest(initmeta, m) : return nothing
         end
@@ -69,7 +69,7 @@ const METAType = Vector{TracySrcLoc}
         nothing
     end
 else
-    function meta(m::Module; autoinit::Bool=true)
+    function tracymeta(m::Module; autoinit::Bool=true)
         if !isdefined(m, META) || getfield(m, META) === nothing
             autoinit ? initmeta(m) : return nothing
         end
@@ -128,7 +128,7 @@ function __init__()
     toggle_fn = @cfunction((data, tracy_srcloc_ptr, enable_ptr) -> begin
         enable = unsafe_load(enable_ptr)
         for m in modules
-            for (i, srcloc) in enumerate(meta(m))
+            for (i, srcloc) in enumerate(tracymeta(m))
                 if pointer_from_objref(srcloc) == tracy_srcloc_ptr
                     m_id = invokelatest(getfield, m, ID)
                     old_enable = srcloc.enabled
