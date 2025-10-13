@@ -52,7 +52,7 @@ const ID = gensym(:id)
 const META = gensym(:tracymeta)
 const METAType = Vector{TracySrcLoc}
 
-@static if VERSION >= v"1.12-DEV"
+@static if isdefined(Core, :isdefinedglobal)
     function tracymeta(m::Module; autoinit::Bool=true)
         if !isdefinedglobal(m, META)
             autoinit ? invokelatest(initmeta, m) : return nothing
